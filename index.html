@@ -321,6 +321,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
 
 
+
 const {
   useState,
   useEffect,
@@ -646,7 +647,7 @@ function loadSave() {
   return defaultSave();
 }
 function migrateSave(s) {
-  const out = { ...s, v: 4 };
+  const out = { ...s, v: s && s.v === 5 ? 5 : 4 };
   if (out.weeks) {
     Object.keys(out.weeks).forEach(wk => {
       const w = out.weeks[wk];
@@ -838,13 +839,16 @@ const HERO_PALETTES = {
   intercessor: { h: "#7a5a10", f: "#e8b98a", e: "#fff7d8", r: "#9a7a1a", R: "#5c480c", b: "#ffe98a", s: "#c9b458", t: "#3c2b1a", w: "#e8d9a0", p: "#ffffff", c: "#3a2c0c" }
 };
 function hexLerp(a, b, t) {
-  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
-  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  const pa = [1, 3, 5].map(i => parseInt(String(a || "#888888").slice(i, i + 2), 16) || 0);
+  const pb = [1, 3, 5].map(i => parseInt(String(b || "#888888").slice(i, i + 2), 16) || 0);
   const out = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
   return "rgb(" + out.join(",") + ")";
 }
 function heroPalette(cls, equipped) {
-  const base = HERO_PALETTES[cls] || HERO_PALETTES.war;
+  try { return heroPaletteInner(cls, equipped); } catch (e) { return { ...HERO_PALETTES.war }; }
+}
+function heroPaletteInner(cls, equipped) {
+  const base = HERO_PALETTES[cls] || HERO_PALETTES[["strazce","posel","ucednik"].includes(cls) ? cls : "war"];
   const p = {
     ...base
   };
@@ -1832,6 +1836,90 @@ const d2font = {
 };
 let particleId = 0;
 
+/* ===== Vrstvené prototypové postavy (base + class + weapon + armor + trinket) ===== */
+const HERO_LAYER_COLORS = {
+  strazce: { body: "#8a94a3", bodyDark: "#5d6774", accent: "#c9a227", trim: "#3d4653" },
+  posel:   { body: "#a8b894", bodyDark: "#7a8a66", accent: "#7fb3d5", trim: "#4d5a44" },
+  ucednik: { body: "#c8c2d8", bodyDark: "#9a94b0", accent: "#f0e6a8", trim: "#6b6480" }
+};
+const WEAPON_LOOKS = {
+  "mec-stit": { type: "swordShield", color: "#c9d5e0" },
+  "luk": { type: "bow", color: "#a58d5f" },
+  "kniha": { type: "book", color: "#f0e6c8" },
+  "runovymec": { type: "sword", color: "#ffd700" },
+  "zvon": { type: "swordShield", color: "#e8e0c8" }
+};
+const ARMOR_LOOKS = { dark: "#4a5260", mid: "#8a94a3", light: "#d5dbe4", cloth: "#7a7490", robe: "#9a94b0" };
+function heroLayeredSprite(clsId, opts) {
+  const size = (opts && opts.size) || 128;
+  const equipped = (opts && opts.equipped) || {};
+  const C = HERO_LAYER_COLORS[clsId] || HERO_LAYER_COLORS.strazce;
+  const px = [];
+  const P = (x, y, w, h, c) => px.push(React.createElement("rect", { key: px.length, x, y, width: w, height: h, fill: c, rx: Math.min(w, h) * 0.15 }));
+  const s = size / 128;
+  const S = v => Math.max(1, Math.round(v * s));
+  // SILUETA — každá classa jiný tvar postavy
+  const cx = 64 * s;
+  if (clsId === "strazce") {
+    // robustní, široký postoj
+    P(cx - S(18), 14 * s, S(36), S(26), C.bodyDark); // hlava širší + helma
+    P(cx - S(22), 12 * s, S(44), S(8), C.trim);      // helma okraj
+    P(cx - S(26), 42 * s, S(52), S(38), C.body);    // široký trup
+    P(cx - S(30), 44 * s, S(60), S(10), C.trim);    // ramenní pláty
+    P(cx - S(18), 84 * s, S(16), S(28), C.bodyDark); // levá noha
+    P(cx + S(2), 84 * s, S(16), S(28), C.bodyDark);  // pravá noha — široký postoj
+  } else if (clsId === "posel") {
+    // štíhlý, dynamický — lehce natočený
+    P(cx - S(13), 16 * s, S(26), S(24), C.bodyDark); // hlava menší
+    P(cx - S(9), 18 * s, S(10), S(20), C.accent);   // kapuce stín
+    P(cx - S(18), 44 * s, S(36), S(34), C.body);    // štíhlý trup
+    P(cx - S(4), 80 * s, S(12), S(32), C.bodyDark);  // nohy užší, pohybový postoj
+    P(cx + S(6), 84 * s, S(11), S(28), C.bodyDark);
+  } else {
+    // ucedník — delší oděv, klidný
+    P(cx - S(14), 18 * s, S(28), S(24), C.bodyDark);
+    P(cx - S(20), 46 * s, S(40), S(40), C.body);    // roucha
+    P(cx - S(16), 86 * s, S(32), S(26), C.bodyDark); // dlouhý spodek
+    P(cx - S(16), 60 * s, S(32), S(4), C.accent);   // pás světla
+  }
+  // VRSTVA: zbraň (dle equip)
+  const wItem = equipped.zbran;
+  const wLook = wItem ? WEAPON_LOOKS[wItem.id] : null;
+  if (wLook) {
+    if (wLook.type === "swordShield") {
+      P(cx + S(30), 48 * s, S(6), S(38), wLook.color);        // meč
+      P(cx + S(26), 82 * s, S(4), S(8), wLook.color);
+      P(cx - S(44), 52 * s, S(14), S(22), wLook.color);       // štít
+    } else if (wLook.type === "bow") {
+      P(cx + S(34), 40 * s, S(5), S(40), wLook.color);       // luk oblouk
+      P(cx + S(36), 42 * s, S(1), S(36), "#e8dcc0");          // tětiva
+    } else if (wLook.type === "book") {
+      P(cx + S(28), 56 * s, S(16), S(18), wLook.color);      // kniha
+      P(cx + S(30), 58 * s, S(2), S(14), C.accent);           // světelná stránka
+    } else if (wLook.type === "sword") {
+      P(cx + S(30), 44 * s, S(7), S(44), wLook.color);
+      P(cx + S(28), 52 * s, S(11), S(4), "#fff");
+    }
+  } else if (clsId === "strazce") { P(cx + S(30), 48 * s, S(6), S(36), C.trim); }
+  else if (clsId === "posel") { P(cx + S(34), 40 * s, S(4), S(38), C.trim); }
+  else { P(cx + S(30), 56 * s, S(12), S(16), C.trim); }
+  // VRSTVA: zbroj (barevné provedení trupu)
+  const aItem = equipped.zbroj;
+  if (aItem) {
+    let armorColor = ARMOR_LOOKS.mid;
+    if (aItem.id === "tezzbroj") armorColor = ARMOR_LOOKS.dark;
+    else if (aItem.id === "lehzbroj") armorColor = ARMOR_LOOKS.light;
+    else if (aItem.id === "plast") armorColor = ARMOR_LOOKS.cloth;
+    P(cx - S(clsId === "strazce" ? 26 : clsId === "posel" ? 18 : 20), (clsId === "strazce" ? 50 : clsId === "posel" ? 48 : 50) * s, S(clsId === "strazce" ? 52 : clsId === "posel" ? 36 : 40), S(20), armorColor);
+  }
+  // VRSTVA: doplněk (malý detail — světelný bod / přívěsek)
+  const tItem = equipped.dopln;
+  if (tItem) {
+    P(cx - S(6), (clsId === "strazce" ? 62 : clsId === "posel" ? 60 : 64) * s, S(12), S(4), tItem.quality === "exceptional" ? "#ffd700" : "#b8c8f0");
+  }
+  return React.createElement("svg", { viewBox: "0 0 128 128", width: size, height: size, "aria-hidden": true }, px);
+}
+
 /* ============================================================
    RPG VRSTVA — C1 TECHNICKÝ ZÁKLAD (EXPERIMENTÁLNÍ)
    Vše zde označeno EXPERIMENTAL — hodnoty nejsou finální.
@@ -2349,6 +2437,169 @@ function UxPearl({ stage, size, reduced }) {
   return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center" } },
     React.createElement(PearlStage, { stage: stage, size: size, animate: !reduced }));
 }
+/* ===== Startovní výbava — idempotentní ===== */
+function rpgEnsureStarterGear(saveCopy, clsId) {
+  const s = JSON.parse(JSON.stringify(saveCopy));
+  if (!s.inv) s.inv = [];
+  if (!s.equip) s.equip = {};
+  const starters = {
+    strazce: ["mec-stit", "tezzbroj"],
+    posel: ["luk", "lehzbroj"],
+    ucednik: ["kniha", "plast"]
+  }[clsId] || [];
+  let changed = false;
+  starters.forEach(id => {
+    const def = RPG_ITEMS.find(it => it.id === id);
+    if (!def) return;
+    // idempotence: už má tento startovní předmět? (podle id v inv)
+    const has = s.inv.some(it => it.rpgId === id || (it.name === def.name && it.slot === def.slot));
+    if (has) return;
+    const uid = "sg_" + id + "_" + (s.inv.length + 1);
+    s.inv.push({ uid, rpgId: id, name: def.name, slot: def.slot, quality: def.quality, bonus: { ...def.bonus } });
+    changed = true;
+  });
+  // nasazení startovní výbavy, pokud slot prázdný
+  starters.forEach(id => {
+    const def = RPG_ITEMS.find(it => it.id === id);
+    if (!def) return;
+    const it = s.inv.find(x => x.rpgId === id);
+    if (it && !s.equip[def.slot]) { s.equip[def.slot] = it.uid; changed = true; }
+  });
+  return { save: s, changed };
+}
+/* ===== Transakční aktivace migrace ===== */
+function rpgActivateMigration(rawSave, clsId) {
+  try {
+    if (!rawSave) return { ok: false, error: "Chybí uložená data." };
+    const v4 = typeof rawSave === "string" ? JSON.parse(rawSave) : JSON.parse(JSON.stringify(rawSave));
+    const copy = JSON.parse(JSON.stringify(v4));
+    const v5 = rpgMigrateV4toV5(copy, clsId);
+    if (!v5 || v5.v !== 5) return { ok: false, error: "Migrace neproběhla správně." };
+    if (clsId && (!v5.hero || v5.hero.cls !== clsId)) return { ok: false, error: "Třída nebyla uložena." };
+    if (!v5.journal || typeof v5.journal !== "object") return { ok: false, error: "Deník chybí v nových datech." };
+    const withGear = rpgEnsureStarterGear(v5, clsId);
+    const check = JSON.parse(JSON.stringify(withGear.save));
+    if (!check.hero || !check.inv || !Array.isArray(check.inv)) return { ok: false, error: "Ověření dat selhalo." };
+    return { ok: true, save: withGear.save };
+  } catch (e) {
+    return { ok: false, error: "Přechod na novou verzi se nepovedl. Zkuste to znovu." };
+  }
+}
+/* ===== Class selection flow (C2a) ===== */
+/* ===== C2a: Startovní výbava (idempotentní) + transakční migrace + class flow ===== */
+function rpgEnsureStarterGear(saveCopy, clsId) {
+  const s = JSON.parse(JSON.stringify(saveCopy));
+  if (!s.inv) s.inv = [];
+  if (!s.equip) s.equip = {};
+  const starters = { strazce: ["mec-stit", "tezzbroj"], posel: ["luk", "lehzbroj"], ucednik: ["kniha", "plast"] }[clsId] || [];
+  starters.forEach(id => {
+    const def = RPG_ITEMS.find(it => it.id === id);
+    if (!def) return;
+    if (s.inv.some(it => it.rpgId === id)) return;
+    s.inv.push({ uid: "sg_" + id, rpgId: id, name: def.name, slot: def.slot, quality: def.quality, bonus: { ...def.bonus } });
+  });
+  starters.forEach(id => {
+    const def = RPG_ITEMS.find(it => it.id === id);
+    const it = s.inv.find(x => x.rpgId === id);
+    if (it && !s.equip[def.slot]) s.equip[def.slot] = it.uid;
+  });
+  return s;
+}
+function rpgActivateMigration(rawSave, clsId) {
+  try {
+    if (!rawSave) return { ok: false, error: "Chybí uložená data." };
+    const v4 = typeof rawSave === "string" ? JSON.parse(rawSave) : JSON.parse(JSON.stringify(rawSave));
+    const copy = JSON.parse(JSON.stringify(v4));
+    const v5 = rpgMigrateV4toV5(copy, clsId);
+    if (!v5 || v5.v !== 5) return { ok: false, error: "Migrace neproběhla správně." };
+    if (clsId && (!v5.hero || v5.hero.cls !== clsId)) return { ok: false, error: "Třída nebyla uložena." };
+    if (!v5.journal || typeof v5.journal !== "object") return { ok: false, error: "Deník chybí v nových datech." };
+    const withGear = rpgEnsureStarterGear(v5, clsId);
+    if (!withGear.hero || !Array.isArray(withGear.inv)) return { ok: false, error: "Ověření dat selhalo." };
+    return { ok: true, save: withGear };
+  } catch (e) {
+    return { ok: false, error: "Přechod na novou verzi se nepovedl. Zkuste to znovu." };
+  }
+}
+const CLASS_CARDS = [
+  { id: "strazce", name: "Strážce", tagline: "Vydrží silné útoky a vrací je proti nepříteli.",
+    pros: ["vysoká odolnost", "blok a protiútok"], con: "pomalejší způsob boje",
+    startGear: "Meč a štít strážce · Těžká zbroj" },
+  { id: "posel", name: "Posel", tagline: "Pohybuje se rychle a hledá správný okamžik k přesnému zásahu.",
+    pros: ["kritické zásahy", "uhýbání"], con: "nižší odolnost",
+    startGear: "Krátký luk · Lehká zbroj" },
+  { id: "ucednik", name: "Učedník", tagline: "Pracuje se Září, očišťuje negativní stavy a používá silné schopnosti.",
+    pros: ["schopnosti Světla", "léčení a očištění"], con: "nejnižší odolnost",
+    startGear: "Kniha světla · Plášť učedníka" }
+];
+function clsCardEl(c, selected, onPick) {
+  const inner = React.createElement("span", { style: { display: "flex", gap: 12, alignItems: "center", width: "100%" } },
+    React.createElement("span", { style: { flexShrink: 0 } }, heroLayeredSprite(c.id, { size: 56, equipped: {} })),
+    React.createElement("span", null,
+      React.createElement("span", { style: { display: "block", fontSize: 17, fontWeight: 600 } }, c.name),
+      React.createElement("span", { className: "sub" }, c.tagline),
+      React.createElement("span", { className: "sub", style: { color: "var(--ux-green)" } }, "+ " + c.pros.join(" · ")),
+      React.createElement("span", { className: "sub", style: { color: "var(--ux-mut)" } }, "− " + c.con)));
+  return React.createElement("button", { key: c.id, className: "ux-menu-item", onClick: () => onPick(c.id),
+    style: selected ? { borderColor: "var(--ux-gold)", background: "var(--ux-gold-bg)" } : {} }, inner);
+}
+function ClassSelectionFlow({ existing, heroName, level, onConfirm, onSkip }) {
+  const [step, setStep] = useState(existing ? 1 : 0);
+  const [name, setName] = useState(heroName || "Poutník");
+  const [cls, setCls] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const card = cls ? CLASS_CARDS.find(c => c.id === cls) : null;
+  const goConfirm = () => { setBusy(true); onConfirm({ name: (name || "Poutník").trim() || "Poutník", cls: cls }); };
+
+  const head = React.createElement("div", { className: "ux-screen-head" },
+    React.createElement("button", { className: "ux-back", onClick: () => { if (!existing && step > 0) setStep(step - 1); else if (onSkip) onSkip(); }, "aria-label": "Zpět" }, (!existing && step > 0) ? "← Zpět" : "✕"),
+    React.createElement("span", { className: "ux-screen-title" }, existing ? "Nová třída postavy" : "Vytvoření hrdiny"));
+
+  let body;
+  if (!existing && step === 0) {
+    body = React.createElement("div", null,
+      React.createElement("label", { style: { display: "block", fontSize: 14, color: "var(--ux-text2)", marginBottom: 8 } }, "Jméno hrdiny"),
+      React.createElement("input", { value: name, onChange: e => setName(e.target.value), maxLength: 20, "aria-label": "Jméno hrdiny",
+        style: { width: "100%", fontSize: 17, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--ux-line)", background: "#fff", fontFamily: "inherit" } }),
+      React.createElement("div", { style: { display: "flex", justifyContent: "center", marginTop: 14 } },
+        heroLayeredSprite(cls || "strazce", { size: 140, equipped: {} })));
+  } else if (step === 1) {
+    const intro = existing
+      ? React.createElement("div", { style: { fontSize: 14, color: "var(--ux-text2)", marginBottom: 14, lineHeight: 1.55 } },
+          "Hra nyní používá tří třídy postav. Vyber si jednu — ",
+          React.createElement("b", null, "denní činnosti, zápisy Deníku, XP, level i inventář zůstanou zachované."),
+          " Staré předměty, které nepůjdou nasadit, zůstanou v inventáři.")
+      : null;
+    const pick = id => { setCls(id); if (existing) setStep(2); };
+    const cards = CLASS_CARDS.map(c => clsCardEl(c, cls === c.id, pick));
+    const cont = (!existing && cls)
+      ? React.createElement("button", { className: "ux-btn-primary", style: { marginTop: 8 }, onClick: () => setStep(2) }, "Pokračovat")
+      : null;
+    body = React.createElement("div", null, intro, React.createElement("div", { className: "ux-menu-list" }, cards), cont);
+  } else if (step === 2 && card) {
+    const heroBlock = React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 12 } },
+      heroLayeredSprite(card.id, { size: 160, equipped: {} }),
+      React.createElement("div", { style: { fontSize: 18, fontWeight: 600 } }, existing ? heroName : name, " · ", card.name));
+    const gear = existing ? card.startGear : card.startGear;
+    const summary = React.createElement("div", { style: { background: "#fff", border: "1px solid var(--ux-line)", borderRadius: 10, padding: "10px 14px", fontSize: 13.5, color: "var(--ux-text2)", lineHeight: 1.55 } },
+      React.createElement("div", null, existing ? "Přidáme startovní vybavení (pokud ho ještě nemáš): " : "Počáteční vybavení: ", React.createElement("b", null, gear)),
+      existing ? React.createElement("div", { style: { marginTop: 6 } }, "Zbraně a zbroje přemapujeme do nových slotů. Staré předměty bez mapování zůstanou v inventáři jako starší předměty.") : null,
+      React.createElement("div", { style: { marginTop: 4 } }, "Schopnosti: ", RPG_ABILITIES[card.id].map(a => a.name).join(" · ")),
+      existing ? React.createElement("div", { style: { marginTop: 6 } }, "Zbraně a zbroje přemapujeme do nových slotů. Vše ostatní zůstává zachované.") : null);
+    const errEl = err ? React.createElement("div", { style: { marginTop: 10, fontSize: 13, color: "#c05640", textAlign: "center" } }, err) : null;
+    const btn = React.createElement("button", { className: "ux-btn-primary", style: { marginTop: 12 }, disabled: busy, onClick: goConfirm }, busy ? "Ukládám…" : (existing ? "Potvrdit a přejít na novou verzi" : "Zahájit cestu"));
+    body = React.createElement("div", null, heroBlock, summary, errEl, btn);
+  } else {
+    body = null;
+  }
+  return React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": existing ? "Výběr nové třídy postavy" : "Vytvoření hrdiny" },
+    head,
+    React.createElement("div", { className: "ux-screen-body" }, body),
+    React.createElement("div", { className: "ux-screen-foot" },
+      React.createElement("button", { className: "ux-btn-primary", onClick: () => setStep(1), style: (!existing && step === 0) ? {} : { display: "none" } }, "Vybrat třídu")));
+}
+
 function HomeScreen({ todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay, onOpenMenu }) {
   return React.createElement("div", { className: "ux-root" },
     React.createElement("div", { className: "ux-header" },
@@ -2468,14 +2719,22 @@ function App() {
   const [invOpen, setInvOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [obStep, setObStep] = useState(null);
+  const [classFlow, setClassFlow] = useState(null); // {existing:bool} — C2a
   const [areaTapMenu, setAreaTapMenu] = useState(null);
   const [teleport, setTeleport] = useState(null);
   const [weekView, setWeekView] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const canvasSizeRef = useRef(null);
+  const clsFlowShown = useRef(false);
 
   useEffect(() => {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+    try {
+      if (!save.hero) {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw) { const cur = JSON.parse(raw); if (cur && cur.hero) return; }
+      }
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch (e) {}
   }, [save]);
   useEffect(() => {
     const onEsc = e => {
@@ -2564,6 +2823,50 @@ function App() {
     spawnParticles(window.innerWidth / 2, window.innerHeight / 3, ["#f5a524", "#ffd700", "#fff7d8"], 14);
   }
   function completeDayForTrial() { const prevLevel = levelFor(save.xp); const gain = 60; const item = rollItem(); const nextXp = save.xp + gain; setSave(sv => ({ ...sv, xp: nextXp, inv: [...sv.inv, item] })); const newLevel = levelFor(nextXp); return { gain, item, leveled: newLevel > prevLevel, newLevel }; }
+
+  function needsClassChoice(sv) {
+    if (!sv) return { needed: false };
+    if (!sv.hero) return { needed: false }; // novy hráč — Creation flow existuje
+    if (sv.v >= 5 && sv.hero.clsChosen && RPG_CLASSES.some(c => c.id === sv.hero.cls)) return { needed: false };
+    // v4 s hrdinou, nebo v5 bez clsChosen, nebo stará classa
+    if (sv.v === 4 && sv.hero && sv.hero.cls && ["strazce", "posel", "ucednik"].includes(sv.hero.cls) && sv.hero.clsChosen) return { needed: false };
+    return { needed: true, existing: true };
+  }
+  function isNewHero(sv) { return !sv.hero; }
+  function confirmClassChoice(choice) {
+    const raw = localStorage.getItem(SAVE_KEY);
+    let rawHero = null;
+    try { rawHero = raw ? (JSON.parse(raw).hero || null) : null; } catch (e) {}
+    if (!raw || !rawHero) {
+      // nový hrdina — vytvoříme v5 save přímo
+      const fresh = { v: 5, hero: { name: choice.name, cls: choice.cls, clsChosen: true }, xp: 0, inv: [], equip: {}, streak: { count: 0, last: null }, totalDays: 0, journal: {}, weeks: {}, onboardingDone: false };
+      const withGear = rpgEnsureStarterGear(fresh, choice.cls);
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(withGear));
+        const check = JSON.parse(localStorage.getItem(SAVE_KEY));
+        if (!check.hero || check.hero.cls !== choice.cls || check.v !== 5) throw new Error("verify");
+        setSave(check);
+        setClassFlow(null);
+      } catch (e) {
+        showToast("Uložení se nepovedlo. Zkuste to prosím znovu.");
+      }
+      return;
+    }
+    const res = rpgActivateMigration(raw, choice.cls);
+    if (!res.ok) { showToast(res.error || "Přechod se nepovedl."); return; }
+    if (res.save.hero && choice.name) res.save.hero.name = choice.name;
+    // transakční uložení: ověříme znovu po zápisu
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(res.save));
+      const check = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (!check.hero || !check.hero.cls || check.v !== 5) throw new Error("verify");
+      setSave(check);
+      setClassFlow(null);
+      showToast("Vítejte ve nové verzi, " + (check.hero.name || "Poutníku") + "!");
+    } catch (e) {
+      showToast("Uložení se nepovedlo. Zkuste to prosím znovu.");
+    }
+  }
   function finishOnboarding() {
     setObStep(null);
     setSave(sv => ({ ...sv, onboardingDone: true }));
@@ -2708,10 +3011,13 @@ function App() {
     setResetArmed(false);
     showToast("Hrdina byl smazán. Nová cesta začíná!");
   }
-  if (!save.hero) {
-    return /*#__PURE__*/React.createElement(Creation, { onCreate: createHero });
+  const clsNeed = needsClassChoice(save);
+  if (!clsFlowShown.current && save.hero && clsNeed.needed && !classFlow && !battle && !encounterDay) {
+    clsFlowShown.current = true;
+    setClassFlow({ existing: true });
   }
-  const hero = save.hero;
+  
+  const hero = save.hero || { name: "Poutník", cls: null };
   const heroClass = CLASSES.find(c => c.id === hero.cls) || CLASSES[0];
   const weekComplete = daysDone === 7;
   const paused = encounterDay !== null || battle !== null || viewDay !== null || chestOpen || closeSummary;
@@ -2803,9 +3109,15 @@ function App() {
     React.createElement("div", { className: "ux-screen-foot", style: { display: "flex", gap: 10 } },
       React.createElement("button", { className: "ux-menu-item", style: { flex: 1, justifyContent: "center" }, onClick: () => setCloseSummary(false) }, "Vrátit se a pokračovat"),
       React.createElement("button", { className: "ux-btn-primary", style: { flex: 1 }, onClick: confirmCloseDay }, "Dokončit den"))) : null;
+  if (!save.hero) {
+    return React.createElement("div", { className: "ux-root" },
+      React.createElement("style", null, UX_CSS),
+      React.createElement(ClassSelectionFlow, { key: "newhero", existing: false, heroName: "Poutník", level: 1, onConfirm: confirmClassChoice, onSkip: null }));
+  }
   return React.createElement("div", { className: "ux-root", key: "uxhome" },
     React.createElement("style", null, UX_CSS),
     uxScreen === "menu" ? renderMenu() : null,
+    classFlow ? React.createElement(ClassSelectionFlow, { key: "clsflow", existing: !!classFlow.existing, heroName: save.hero ? save.hero.name : "Poutník", level: levelFor(save.xp), onConfirm: confirmClassChoice, onSkip: classFlow.existing ? () => setClassFlow(null) : null }) :
     !uxScreen || uxScreen === "menu" ? React.createElement(HomeScreen, {
       todayIdx: todayIdx, pearlStage: pearlStage,
       areasDone: areasDone, totalActsDone: totalActsDone, areasActive: areasActive,
@@ -3308,6 +3620,7 @@ function ChestModal({
     }
   }, "Na dal\u0161\xED t\xFDden! \u2694"))));
 }
+
 
 
 
