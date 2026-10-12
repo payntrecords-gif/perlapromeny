@@ -392,21 +392,21 @@ const ACTIVITY_AREAS = [{
 }];
 const ACTIVITIES = [
   { id: "ozn-poslech3", areaId: "ozn", name: "Poslech 3minutového slova", desc: "Krátce si poslechni dnešní 3minutové slovo.", repeatable: false },
-  { id: "ozn-mye", areaId: "ozn", name: "MYE shim 3minutového slova", desc: "Navrženo k potvrzení: zopakuj si látku 3minutového slova (MYE shim).", repeatable: false },
+  { id: "ozn-mye", areaId: "ozn", name: "MYE shim 3minutového slova", desc: "zopakuj si látku 3minutového slova (MYE shim).", repeatable: false },
   { id: "ozn-kazani", areaId: "ozn", name: "Poslech / organizování slova z kázání", desc: "Poslechni nebo zorganizuj slovo z kázání.", repeatable: false },
   { id: "ozn-zjeveni", areaId: "ozn", name: "Poslech / organizování slova Zjevení", desc: "Poslechni nebo zorganizuj slovo Zjevení.", repeatable: false },
   { id: "ozn-speech", areaId: "ozn", name: "Speech z kázání / Zjevení", desc: "Připrav a nahlas sděl speech z kázání nebo Zjevení.", repeatable: false },
   { id: "vira-modlitba", areaId: "vira", name: "Začít a zakončit den s modlitbou", desc: "Začni i skonči den krátkou modlitbou.", repeatable: false },
   { id: "vira-shromazdeni", areaId: "vira", name: "Účast na modlitebním shromáždění", desc: "Zúčastni se modlitebního shromáždění.", repeatable: false },
   { id: "vira-svatyne", areaId: "vira", name: "Příchod do svatyně offline", desc: "Zajdi fyzicky do svatyně.", repeatable: false },
-  { id: "vira-gy", areaId: "vira", name: "Účast na GY bohoslužbě", desc: "Navrženo k potvrzení: zúčastni se bohoslužby GY.", repeatable: false },
+  { id: "vira-gy", areaId: "vira", name: "Účast na GY bohoslužbě", desc: "zúčastni se bohoslužby GY.", repeatable: false },
   { id: "evang-chat", areaId: "evang", name: "Poslat modlitbu do skupinového chatu", desc: "Napiš krátkou modlitbu do skupinového chatu.", repeatable: false },
-  { id: "evang-nb-off", areaId: "evang", name: "Offline NB", desc: "Navrženo k potvrzení: evangelizační aktivita NB osobně.", repeatable: false },
-  { id: "evang-nb-on", areaId: "evang", name: "Online NB", desc: "Navrženo k potvrzení: evangelizační aktivita NB online.", repeatable: false },
+  { id: "evang-nb-off", areaId: "evang", name: "Offline NB", desc: "evangelizační aktivita NB osobně.", repeatable: false },
+  { id: "evang-nb-on", areaId: "evang", name: "Online NB", desc: "evangelizační aktivita NB online.", repeatable: false },
   { id: "evang-jednotka", areaId: "evang", name: "Jednodenní speciální jednotka", desc: "Zúčastni se jednodenní speciální jednotky.", repeatable: false },
   { id: "pokani-denik", areaId: "pokani", name: "Deník proměny", desc: "Otevři Deník a zapiš své tři otázky dne.", repeatable: false, linked: "journal" },
   { id: "pokani-skutek", areaId: "pokani", name: "Skutek proměny (poslušnost / zodpovědnost / pokora…)", desc: "Vykonaj jeden konkrétní skutek proměny.", repeatable: false },
-  { id: "pokani-shimbang", areaId: "pokani", name: "Shimbang", desc: "Navrženo k potvrzení: společná aktivita Shimbang.", repeatable: false }];
+  { id: "pokani-shimbang", areaId: "pokani", name: "Shimbang", desc: "společná aktivita Shimbang.", repeatable: false }];
 
 function areaActs(areaId) {
   return ACTIVITIES.filter(a => a.areaId === areaId);
