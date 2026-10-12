@@ -1,0 +1,141 @@
+name: Deploy Pages (main root + preview-ux-v2)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      main_sha: ${{ steps.shas.outputs.main_sha }}
+      preview_sha: ${{ steps.shas.outputs.preview_sha }}
+    steps:
+      - name: Checkout main (root webu)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
+          fetch-depth: 1
+
+      - name: Checkout ux-reset-v2 (preview)
+        uses: actions/checkout@v4
+        with:
+          ref: ux-reset-v2
+          path: preview-src
+          sparse-checkout: |
+            preview-ux-v2/
+          fetch-depth: 1
+
+      - name: Zaznamenat SHA obou checkoutů
+        id: shas
+        run: |
+          echo "main_sha=$(git -C main-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "preview_sha=$(git -C preview-src rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "MAIN SHA: $(git -C main-src rev-parse HEAD)"
+          echo "PREVIEW SHA: $(git -C preview-src rev-parse HEAD)"
+
+      - name: Sestavit artifact (root = main, preview = ux-reset-v2, jen statický web)
+        run: |
+          set -euo pipefail
+          mkdir -p site
+          # root: jen statické soubory pro běh webu z main (žádné .git, README, interní dokumenty)
+          cp main-src/index.html main-src/manifest.json main-src/sw.js main-src/icon-192.png main-src/icon-512.png site/
+          # preview podsložka
+          mkdir -p site/preview-ux-v2
+          cp preview-src/preview-ux-v2/index.html site/preview-ux-v2/
+          # čisté statické publikování bez Jekyll
+          touch site/.nojekyll
+
+      - name: Kontrola A — existence klíčových souborů
+        run: |
+          set -euo pipefail
+          for f in site/index.html site/sw.js site/manifest.json site/preview-ux-v2/index.html site/.nojekyll; do
+            test -f "$f" || { echo "::error::chybí $f"; exit 1; }
+          done
+          echo "OK: všechny klíčové soubory existují"
+
+      - name: Kontrola B — root odpovídá main (byte-shodné)
+        run: |
+          set -euo pipefail
+          cmp -s site/index.html main-src/index.html || { echo "::error::root index.html neodpovídá main!"; exit 1; }
+          cmp -s site/sw.js main-src/sw.js || { echo "::error::root sw.js neodpovídá main!"; exit 1; }
+          echo "OK: root index/sw.js byte-shodný s main"
+
+      - name: Kontrola C — preview odpovídá ux-reset-v2
+        run: |
+          set -euo pipefail
+          cmp -s site/preview-ux-v2/index.html preview-src/preview-ux-v2/index.html \
+            || { echo "::error::preview index neodpovídá ux-reset-v2!"; exit 1; }
+          echo "OK: preview index odpovídá ux-reset-v2"
+
+      - name: Kontrola D — izolace verzí (PREVIEW_MODE / storage / SW / manifest)
+        run: |
+          set -euo pipefail
+          grep -q 'PREVIEW_MODE = true' site/preview-ux-v2/index.html \
+            || { echo "::error::preview neobsahuje PREVIEW_MODE!"; exit 1; }
+          if grep -q 'PREVIEW_MODE' site/index.html; then
+            echo "::error::root obsahuje PREVIEW_MODE — prolnutí verzí!"; exit 1
+          fi
+          grep -q 'perla_promeny_preview_v5' site/preview-ux-v2/index.html \
+            || { echo "::error::preview neobsahuje preview klíč!"; exit 1; }
+          if grep -q 'perla_promeny_preview_v5' site/index.html; then
+            echo "::error::root obsahuje preview klíč — prolnutí verzí!"; exit 1
+          fi
+          if grep -q 'serviceWorker\.register' site/preview-ux-v2/index.html; then
+            echo "::error::preview obsahuje serviceWorker.register!"; exit 1
+          fi
+          if grep -q 'rel="manifest"' site/preview-ux-v2/index.html; then
+            echo "::error::preview obsahuje manifest link!"; exit 1
+          fi
+          if grep -qE 'localStorage\.(setItem|removeItem)\("perla-promeny-v4"' site/preview-ux-v2/index.html; then
+            echo "::error::preview zapisuje/maže produkční klíč!"; exit 1
+          fi
+          echo "OK: izolace verzí a storage"
+
+      - name: Kontrola E — produkční sw.js obsahuje preview výjimku
+        run: |
+          set -euo pipefail
+          grep -q 'preview-ux-v2' site/sw.js \
+            || { echo "::error::produkční sw.js neobsahuje výjimku pro preview cestu!"; exit 1; }
+          echo "OK: produkční sw.js má preview guard"
+
+      - name: Kontrola F — žádné zbytečné soubory v artefaktu
+        run: |
+          set -euo pipefail
+          if [ -d site/.git ]; then echo "::error::artefakt obsahuje .git!"; exit 1; fi
+          ALLOWED="index.html manifest.json sw.js icon-192.png icon-512.png .nojekyll preview-ux-v2"
+          for f in site/*; do
+            base=$(basename "$f")
+            echo "$ALLOWED" | grep -qw "$base" || { echo "::error::neočekávaný soubor v artefaktu: $base"; exit 1; }
+          done
+          echo "OK: artefakt obsahuje jen statický web"
+
+      - name: Nahrát Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deployment info (SHA zdrojů)
+        run: |
+          echo "Root webu pochází z main: ${{ needs.build.outputs.main_sha }}"
+          echo "Preview pochází z ux-reset-v2: ${{ needs.build.outputs.preview_sha }}"
+      - id: deployment
+        uses: actions/deploy-pages@v4
