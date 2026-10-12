@@ -319,6 +319,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script>const React=window.React, ReactDOM=window.ReactDOM;</script>
 <script>
 
+
 const {
   useState,
   useEffect,
@@ -2030,6 +2031,181 @@ function SettingsModal({ testMode, resetArmed, onToggleTest, onReset, onClose })
         React.createElement("button", { onClick: onReset, className: "btnD2 w-full py-2 text-xs", style: { color: resetArmed ? "#ffffff" : "#ff8877", borderColor: resetArmed ? "#ff8877" : undefined } }, resetArmed ? "Opravdu smazat VŠE? (klikni znovu)" : "Smazat všechna data"))));
 }
 
+const AREA_ICONS = {
+  ozn: (c) => React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: c, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    React.createElement("path", { d: "M12 5c-1.8-1.4-4.2-2-7-2v15c2.8 0 5.2.6 7 2 1.8-1.4 4.2-2 7-2V3c-2.8 0-5.2.6-7 2z" }),
+    React.createElement("path", { d: "M12 5v15" })),
+  vira: (c) => React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: c, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    React.createElement("path", { d: "M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" }),
+    React.createElement("circle", { cx: 12, cy: 12, r: 3.2 })),
+  evang: (c) => React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: c, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    React.createElement("path", { d: "M12 3l7 4v10l-7 4-7-4V7z" }),
+    React.createElement("path", { d: "M12 8v8M9 10.5l3-1.5 3 1.5" })),
+  pokani: (c) => React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: c, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true },
+    React.createElement("circle", { cx: 12, cy: 12, r: 6.5 }),
+    React.createElement("path", { d: "M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2 2M17.4 17.4l2 2M19.4 4.6l-2 2M6.6 17.4l-2 2" }))
+};
+function areaIcon(id, color) {
+  const f = AREA_ICONS[id] || AREA_ICONS.ozn;
+  return f(color);
+}
+const UX_CSS = `
+:root { --ux-bg: #F6FAFD; --ux-card: #FFFFFF; --ux-text: #22303C; --ux-text2: #6B7A88; --ux-mut: #9AA8B2; --ux-gold: #C9A227; --ux-gold-bg: rgba(201,162,39,.12); --ux-blue: #7FB3D5; --ux-green: #3E8E5A; --ux-line: #E3EBF2; }
+.ux-root { min-height: 100dvh; background: var(--ux-bg); color: var(--ux-text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.5; display: flex; flex-direction: column; }
+.ux-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px 4px; padding-top: max(10px, env(safe-area-inset-top)); }
+.ux-day { font-size: 20px; font-weight: 600; }
+.ux-dots { display: flex; align-items: center; gap: 7px; margin: 6px 16px 2px; }
+.ux-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ux-line); }
+.ux-dot.closed { background: var(--ux-gold); }
+.ux-dot.today { background: var(--ux-gold); box-shadow: 0 0 0 3px var(--ux-gold-bg); }
+.ux-pearl-zone { display: flex; flex-direction: column; align-items: center; padding: 10px 16px 4px; }
+.ux-stage-label { font-size: 13px; font-weight: 600; color: var(--ux-text2); margin-top: 2px; letter-spacing: .02em; }
+.ux-hint { text-align: center; font-size: 15px; color: var(--ux-text2); margin: 4px 16px 10px; max-width: 420px; margin-left: auto; margin-right: auto; }
+.ux-areas { display: flex; flex-direction: column; gap: 9px; padding: 0 16px; max-width: 480px; margin: 0 auto; width: 100%; }
+.ux-card { display: flex; align-items: center; gap: 12px; background: var(--ux-card); border: 1px solid var(--ux-line); border-radius: 12px; padding: 14px 16px; min-height: 64px; text-align: left; width: 100%; box-shadow: 0 2px 8px rgba(34,48,60,.06); transition: background .15s; }
+.ux-card:active { background: #F0F6FA; }
+.ux-card.done { border-color: var(--ux-gold); background: linear-gradient(0deg, var(--ux-gold-bg), var(--ux-card)); }
+.ux-card-name { font-size: 17px; font-weight: 600; flex: 1; }
+.ux-card-state { font-size: 13px; color: var(--ux-mut); white-space: nowrap; }
+.ux-card.done .ux-card-state { color: var(--ux-green); }
+.ux-card-check { width: 20px; height: 20px; border-radius: 50%; background: var(--ux-gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ux-summary { text-align: center; font-size: 13.5px; color: var(--ux-text2); margin: 12px 16px 8px; }
+.ux-footer { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(246,250,253,0), var(--ux-bg) 40%); padding: 10px 16px 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+.ux-btn-finish { display: block; width: 100%; max-width: 480px; margin: 0 auto; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; font-family: inherit; background: var(--ux-line); color: var(--ux-mut); }
+.ux-btn-finish.active { background: var(--ux-gold); color: #fff; box-shadow: 0 3px 10px rgba(201,162,39,.35); }
+.ux-finish-note { text-align: center; font-size: 12px; color: var(--ux-mut); margin-top: 6px; }
+.ux-menu-btn { background: none; border: none; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.ux-screen { position: fixed; inset: 0; z-index: 40; background: var(--ux-bg); display: flex; flex-direction: column; color: var(--ux-text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 16px; }
+.ux-screen-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); border-bottom: 1px solid var(--ux-line); background: var(--ux-card); }
+.ux-back { background: none; border: none; padding: 6px 10px 6px 6px; font-size: 15px; color: var(--ux-text2); font-family: inherit; }
+.ux-screen-title { font-size: 18px; font-weight: 600; flex: 1; }
+.ux-screen-body { flex: 1; overflow-y: auto; padding: 14px 16px; -webkit-overflow-scrolling: touch; }
+.ux-screen-foot { padding: 10px 16px 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--ux-line); background: var(--ux-card); }
+.ux-btn-primary { display: block; width: 100%; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; font-family: inherit; background: var(--ux-gold); color: #fff; box-shadow: 0 3px 10px rgba(201,162,39,.35); }
+.ux-subtitle { font-size: 14px; color: var(--ux-text2); margin: 2px 16px 12px; }
+.ux-act { display: flex; align-items: flex-start; gap: 12px; background: var(--ux-card); border: 1px solid var(--ux-line); border-radius: 12px; padding: 14px; margin-bottom: 9px; width: 100%; text-align: left; transition: background .2s, border-color .2s; font-family: inherit; }
+.ux-act.checked { border-color: var(--ux-gold); background: linear-gradient(0deg, var(--ux-gold-bg), var(--ux-card)); }
+.ux-act.flash { background: rgba(201,162,39,.22); }
+.ux-act-name { font-size: 16px; flex: 1; }
+.ux-act-desc { font-size: 13px; color: var(--ux-mut); margin-top: 2px; }
+.ux-check { width: 24px; height: 24px; border-radius: 7px; border: 2px solid var(--ux-line); flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.ux-act.checked .ux-check { background: var(--ux-gold); border-color: var(--ux-gold); }
+.ux-week-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--ux-line); }
+.ux-week-day { font-size: 16px; font-weight: 600; width: 90px; }
+.ux-week-info { flex: 1; font-size: 14px; color: var(--ux-text2); }
+.ux-badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--ux-gold-bg); color: var(--ux-gold); font-weight: 600; }
+.ux-menu-list { display: flex; flex-direction: column; gap: 9px; max-width: 480px; margin: 0 auto; width: 100%; }
+.ux-menu-item { display: flex; align-items: center; gap: 12px; background: var(--ux-card); border: 1px solid var(--ux-line); border-radius: 12px; padding: 14px 16px; font-size: 16px; font-weight: 500; width: 100%; text-align: left; font-family: inherit; color: var(--ux-text); min-height: 60px; }
+.ux-menu-item .sub { font-size: 12.5px; color: var(--ux-mut); font-weight: 400; display: block; margin-top: 1px; }
+@media (prefers-reduced-motion: reduce) { .ux-card, .ux-act, .ux-btn-finish { transition: none; } }
+`;
+
+function actLabel(n) {
+  if (n === 1) return "1 dnešní činnost";
+  if (n >= 2 && n <= 4) return n + " dnešní činnosti";
+  return n + " dnešních činností";
+}
+function UxPearl({ stage, size, reduced }) {
+  return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center" } },
+    React.createElement(PearlStage, { stage: stage, size: size, animate: !reduced }));
+}
+function HomeScreen({ heroName, level, todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay }) {
+  return React.createElement("div", { className: "ux-root" },
+    React.createElement("div", { className: "ux-header" },
+      React.createElement("span", { className: "ux-day" }, DAY_NAMES[todayIdx]),
+      React.createElement("span", { style: { fontSize: 12, color: "var(--ux-mut)" }, "aria-hidden": true }, heroName, " · Lv ", level)),
+    React.createElement("div", { className: "ux-dots", "aria-label": "Postup týdnem: " + pearlStage, role: "img" },
+      [0, 1, 2, 3, 4, 5, 6].map(i => React.createElement("span", { key: i, className: "ux-dot " + (i === todayIdx ? "today" : i < todayIdx ? "closed" : "") }))),
+    React.createElement("div", { className: "ux-pearl-zone" },
+      React.createElement(UxPearl, { stage: pearlStage, size: 128, reduced: reduced }),
+      React.createElement("span", { className: "ux-stage-label" }, "ChangeON", pearlStage)),
+    React.createElement("div", { className: "ux-hint" }, dayClosed ? "Dnes je den uzavřen. Odpočiň si." : "Vyber oblast, které ses dnes věnoval."),
+    React.createElement("div", { className: "ux-areas" },
+      areasDone.map(a => {
+        const done = a.done > 0;
+        let stateTxt;
+        if (a.id === "pokani") {
+          stateTxt = journalStatus === "done" ? "Deník dokončen" : journalStatus === "draft" ? "Deník rozepsán" : done ? actLabel(a.done) : "Bez záznamu";
+        } else {
+          stateTxt = done ? actLabel(a.done) : "Bez záznamu";
+        }
+        return React.createElement("button", { key: a.id, className: "ux-card " + (done ? "done" : ""), onClick: () => onOpenArea(a.id), "aria-label": a.name + ": " + stateTxt },
+          areaIcon(a.id, done ? "var(--ux-gold)" : "var(--ux-blue)"),
+          React.createElement("span", { className: "ux-card-name" }, a.name),
+          done ? React.createElement("span", { className: "ux-card-check", "aria-hidden": true },
+            React.createElement("svg", { viewBox: "0 0 24 24", width: 12, height: 12, fill: "none", stroke: "#fff", strokeWidth: 3, strokeLinecap: "round" }, React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7" }))) : null,
+          React.createElement("span", { className: "ux-card-state" }, stateTxt));
+      })),
+    React.createElement("div", { className: "ux-summary" }, "Dnes dokončeno: ", totalActsDone === 0 ? "0 činností" : actLabel(totalActsDone), " · Aktivní oblasti: ", areasActive, " ze 4"),
+    React.createElement("div", { className: "ux-footer" },
+      React.createElement("button", { className: "ux-btn-finish " + (totalActsDone > 0 && !dayClosed ? "active" : ""), disabled: totalActsDone === 0 || dayClosed, onClick: onFinishDay, "aria-label": "Dokončit dnešní den" }, dayClosed ? "Den je uzavřen ✓" : "Dokončit dnešní den"),
+      totalActsDone === 0 && !dayClosed ? React.createElement("div", { className: "ux-finish-note" }, "Nejprve zaznamenej alespoň jednu činnost.") : null));
+}
+function AreaScreen({ area, actsDone, todayRec, dayClosed, journalStatus, onBack, onToggleAct, onOpenJournal, flashId }) {
+  return React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": area.name },
+    React.createElement("div", { className: "ux-screen-head" },
+      React.createElement("button", { className: "ux-back", onClick: onBack, "aria-label": "Zpět na dnešní obrazovku" }, "← Zpět"),
+      React.createElement("span", { className: "ux-screen-title" }, area.name)),
+    React.createElement("div", { className: "ux-subtitle" },
+      area.id === "ozn" ? "Zaznamenej, co jsi dnes označoval." :
+      area.id === "vira" ? "Zaznamenej svůj dnešní život víry." :
+      area.id === "evang" ? "Zaznamenej dnešní evangelizaci." : "Zaznamenej svou dnešní proměnu."),
+    React.createElement("div", { className: "ux-screen-body" },
+      areaActs(area.id).map(act => {
+        if (act.id === "pokani-denik") {
+          const jl = journalStatus === "done" ? "Deník proměny — dokončen" : journalStatus === "draft" ? "Deník proměny — rozepsán" : "Deník proměny — otevřít zápis";
+          return React.createElement("button", { key: act.id, className: "ux-act " + (journalStatus !== "empty" ? "checked" : ""), onClick: onOpenJournal, "aria-label": jl },
+            React.createElement("span", { className: "ux-check", "aria-hidden": true }, journalStatus === "done" ? React.createElement("svg", { viewBox: "0 0 24 24", width: 14, height: 14, fill: "none", stroke: "#fff", strokeWidth: 3, strokeLinecap: "round" }, React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7" })) : null),
+            React.createElement("span", { className: "ux-act-name" }, jl),
+            React.createElement("span", { className: "ux-act-desc" }, "Tři otázky dne"));
+        }
+        const isDone = todayRec && todayRec.acts && todayRec.acts[act.id] && todayRec.acts[act.id].done;
+        return React.createElement("button", { key: act.id, className: "ux-act " + (isDone ? "checked " : "") + (flashId === act.id ? "flash" : ""), onClick: () => onToggleAct(act.id), disabled: dayClosed, "aria-pressed": !!isDone, "aria-label": act.name + (isDone ? ", dokončeno" : "") },
+          React.createElement("span", { className: "ux-check", "aria-hidden": true }, isDone ? React.createElement("svg", { viewBox: "0 0 24 24", width: 14, height: 14, fill: "none", stroke: "#fff", strokeWidth: 3, strokeLinecap: "round" }, React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7" })) : null),
+          React.createElement("span", null,
+            React.createElement("span", { className: "ux-act-name", style: { display: "block" } }, act.name),
+            act.desc && !act.descHidden ? React.createElement("span", { className: "ux-act-desc" }, act.desc) : null));
+      }),
+      dayClosed ? React.createElement("div", { style: { textAlign: "center", color: "var(--ux-mut)", fontSize: 13.5, marginTop: 10 } }, "Den je uzavřen — činnosti jsou uzamčeny.") : null),
+    React.createElement("div", { className: "ux-screen-foot" },
+      React.createElement("button", { className: "ux-btn-primary", onClick: onBack }, "Hotovo")));
+}
+function WeekScreen({ save, wk, todayIdx, onBack }) {
+  const dayNum = (new Date().getDay() + 6) % 7;
+  const monday = new Date();
+  monday.setDate(monday.getDate() - dayNum);
+  const rows = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dk = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    const rec = save.weeks && save.weeks[wk] && save.weeks[wk].days ? save.weeks[wk].days[i] : null;
+    const closed = !!(rec && rec.closed);
+    const acts = rec && rec.acts ? Object.keys(rec.acts).length : 0;
+    const j = save.journal && save.journal[dk];
+    const jState = !j || (!j.grateful && !j.battle && !j.change) ? "—" : j.status === "done" ? "Deník ✓" : "Deník rozepsán";
+    rows.push({ i, name: DAY_NAMES[i], closed, acts, jState, isToday: i === todayIdx });
+  }
+  const daysClosed = rows.filter(r => r.closed).length;
+  const allActs = rows.reduce((x, r) => x + r.acts, 0);
+  return React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": "Týdenní přehled" },
+    React.createElement("div", { className: "ux-screen-head" },
+      React.createElement("button", { className: "ux-back", onClick: onBack, "aria-label": "Zpět" }, "← Zpět"),
+      React.createElement("span", { className: "ux-screen-title" }, "Týden")),
+    React.createElement("div", { className: "ux-screen-body" },
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", padding: "6px 0 14px" } },
+        React.createElement(UxPearl, { stage: Math.min(7, 1 + daysClosed), size: 90, reduced: false }),
+        React.createElement("span", { className: "ux-stage-label" }, "ChangeON", Math.min(7, 1 + daysClosed)),
+        React.createElement("span", { style: { fontSize: 13, color: "var(--ux-mut)", marginTop: 4 } }, daysClosed, daysClosed === 1 ? " uzavřený den" : " uzavřené dny")),
+      rows.map(r => React.createElement("div", { key: r.i, className: "ux-week-row" },
+        React.createElement("span", { className: "ux-week-day" }, r.closed ? "✓ " : "", r.name, r.isToday ? "" : ""),
+        React.createElement("span", { className: "ux-week-info" }, r.isToday && !r.closed ? "dnes" : r.acts > 0 ? actLabel(r.acts) + " · " + r.jState : r.closed ? "uzavřen" : "čeká"),
+        r.isToday ? React.createElement("span", { className: "ux-badge" }, "dnes") : null)),
+      React.createElement("div", { style: { marginTop: 14, textAlign: "center", fontSize: 13.5, color: "var(--ux-text2)" } }, "Týden: ", allActs, " činností · Uzavřené dny: ", daysClosed, "/7")),
+    React.createElement("div", { className: "ux-screen-foot" },
+      React.createElement("button", { className: "ux-btn-primary", onClick: onBack }, "Hotovo")));
+}
+
 function App() {
   const [save, setSave] = useState(loadSave);
   const [testMode, setTestMode] = useState(false);
@@ -2145,6 +2321,7 @@ function App() {
     sfxComplete();
     spawnParticles(window.innerWidth / 2, window.innerHeight / 3, ["#f5a524", "#ffd700", "#fff7d8"], 14);
   }
+  function completeDayForTrial() { const prevLevel = levelFor(save.xp); const gain = 60; const item = rollItem(); const nextXp = save.xp + gain; setSave(sv => ({ ...sv, xp: nextXp, inv: [...sv.inv, item] })); const newLevel = levelFor(nextXp); return { gain, item, leveled: newLevel > prevLevel, newLevel }; }
   function finishOnboarding() {
     setObStep(null);
     setSave(sv => ({ ...sv, onboardingDone: true }));
@@ -2300,165 +2477,126 @@ function App() {
     x: pos[0], y: pos[1], dayIdx: i,
     state: weekRec.days[i] && weekRec.days[i].closed ? "done" : i === todayIdx ? "today" : i < todayIdx ? "missed" : testMode ? "open" : "locked"
   }));
-  const topBar = /*#__PURE__*/React.createElement("div", { "data-ob": "day", className: "panelD2 flex items-center justify-between gap-2 px-3 py-1.5", style: { flexWrap: "wrap" } },
-    /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
-      DAY_SHORT.map((d, i) => {
-        const done = weekRec.days[i] && weekRec.days[i].closed;
-        const isToday = i === todayIdx;
-        const future = i > todayIdx;
-        return /*#__PURE__*/React.createElement("div", { key: i, className: "flex flex-col items-center justify-center rounded px-1.5 py-0.5", style: { minWidth: 34, border: isToday ? "2px solid #ffd700" : "1px solid #2a2018", background: isToday ? "linear-gradient(180deg,#2a1c08,#140d04)" : done ? "#1a2214" : "transparent", boxShadow: isToday ? "0 0 10px rgba(255,215,0,.4)" : "none", opacity: future ? 0.45 : 1 } },
-          /*#__PURE__*/React.createElement("span", { className: "text-[10px] font-bold", style: { color: done ? "#7dd87d" : isToday ? "#ffd700" : "#8a7a5c" } }, done ? "✓" : "", d),
-          isToday && /*#__PURE__*/React.createElement("span", { className: "text-[8px]", style: { color: "#ffe9a8" } }, "Dnes"));
-      })),
-    /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-2" },
-      /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
-        /*#__PURE__*/React.createElement(PearlStage, { stage: pearlStage, size: 30, animate: true }),
-        /*#__PURE__*/React.createElement("span", { className: "text-[10px] font-bold", style: { color: "#ffd700" } }, "ChangeON", pearlStage)),
-      /*#__PURE__*/React.createElement("button", { onClick: () => { setSettingsOpen(true); sfxClick(); }, "aria-label": "Nastavení", className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: "#8a7a5c", minWidth: 32 } }, "⚙ Nastavení"),
-      /*#__PURE__*/React.createElement("button", { onClick: () => { setObStep(0); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: "#7ec8ff", minWidth: 32 }, "aria-label": "Nápověda — spusť průvodce" }, "? Nápověda"),
-      /*#__PURE__*/React.createElement("button", { onClick: () => { setWeekView(true); sfxClick(); }, "aria-label": "Tento týden", className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: "#7ec8ff", minWidth: 32 } }, "📅 Týden")));
-  const dayPathPanel = /*#__PURE__*/React.createElement("div", { className: "panelD2 flex flex-col gap-1.5 p-3" },
-    /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between" },
-      /*#__PURE__*/React.createElement("div", { className: "text-xs font-bold", style: { color: "#ffe9a8" } }, "🚩 Dnešní cesta"),
-      /*#__PURE__*/React.createElement("span", { className: "text-[10px]", style: { color: "#8a7a5c" } }, "Dnes dokončeno: ", totalActsDone === 1 ? "1 činnost" : totalActsDone >= 2 && totalActsDone <= 4 ? totalActsDone + " činnosti" : totalActsDone + " činností", " · Aktivní oblasti: ", areasActive, " ze 4")),
-    areasDone.map(a => /*#__PURE__*/React.createElement("div", { key: a.id, className: "rounded border-2 p-1.5", style: { borderColor: navTarget && navTarget.areaId === a.id ? a.color : "#2a2018", background: activeArea === a.id ? "rgba(255,255,255,.03)" : "transparent" } },
-      /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between gap-1" },
-        /*#__PURE__*/React.createElement("button", { onClick: () => { setActiveArea(activeArea === a.id ? null : a.id); sfxClick(); }, "data-ob": a.id === "ozn" ? "area" : undefined, className: "flex-1 text-left" },
-          /*#__PURE__*/React.createElement("span", { className: "text-[11px] font-bold", style: { color: a.done > 0 ? a.color : "#d8c9a3" } }, a.glyph, " ", a.name, " ", a.done > 0 ? "· " + a.done + "/" + a.total : "")),
-        /*#__PURE__*/React.createElement("button", { onClick: () => navigateToArea(a.id), "data-ob": a.id === "ozn" ? "nav" : undefined, className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#7ec8ff" } }, "🧭 Navěst"),
-          React.createElement("button", { onClick: () => teleportToArea(a.id), "aria-label": "Přejít k místu " + a.name, className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#ffe9a8" } }, "➤ Přejít"),
-          React.createElement("button", { onClick: () => openAreaPanel(a.id), "aria-label": "Otevřít oblast " + a.name, className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#a78bfa" } }, "▤ Otevřít")),
-      activeArea === a.id && /*#__PURE__*/React.createElement("div", { className: "mt-1 flex flex-col gap-0.5" },
-        areaActs(a.id).map(act => {
-          if (act.id === "pokani-denik") {
-            const jState = journalStatus;
-            const jLabel = jState === "done" ? "Deník proměny — dokončeno" : jState === "draft" ? "Deník proměny — rozpracováno" : "Deník proměny — otevřít zápis";
-            return /*#__PURE__*/React.createElement("button", { key: act.id, onClick: () => { setJournalOpen(true); sfxClick(); }, "data-ob": "journal", className: "mb-1 flex w-full items-center gap-2 rounded border-2 px-2 py-1.5 text-left text-[10px]", style: { borderColor: jState === "done" ? "#7dd87d" : "#f5a524", background: "rgba(245,165,36,.08)" } },
-              /*#__PURE__*/React.createElement("span", { style: { color: jState === "done" ? "#7dd87d" : "#f5a524" } }, jState === "done" ? "☑" : "📖"),
-              /*#__PURE__*/React.createElement("span", { style: { color: jState === "done" ? "#7dd87d" : "#ffe9a8" } }, jLabel));
-          }
-          const isDone = todayRec && todayRec.acts && todayRec.acts[act.id] && todayRec.acts[act.id].done;
-          return /*#__PURE__*/React.createElement("button", { key: act.id, onClick: () => isDone ? uncompleteActivity(act.id) : completeActivity(act.id), disabled: dayClosed, className: "flex items-center gap-2 rounded px-1.5 py-1 text-left text-[10px]", style: { background: isDone ? "rgba(125,216,125,.12)" : "rgba(0,0,0,.25)", opacity: dayClosed ? 0.5 : 1 } },
-            /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#5c5140" } }, isDone ? "☑" : "☐"),
-            /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#d8c9a3", textDecoration: isDone && dayClosed ? "none" : isDone ? "none" : "none" } }, act.name));
-        })),
-        dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 text-[9px] italic", style: { color: "#8a7a5c" } }, "Den je uzavřen — činnosti jsou uzamčeny."))),
-    !dayClosed && /*#__PURE__*/React.createElement("button", { onClick: requestCloseDay, "data-ob": "done", className: "btnD2 daybtn mt-1 w-full py-2 text-xs font-bold", style: { color: totalActsDone > 0 ? "#ffd700" : "#5c5140", opacity: totalActsDone > 0 ? 1 : 0.5 } }, "🕊 Dokončit dnešní den", totalActsDone === 0 && /*#__PURE__*/React.createElement("span", { className: "block text-[9px] font-normal", style: { color: "#8a7a5c" } }, "(nejdřív splň nějakou činnost)")),
-    dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, "✓ Den uzavřen — Perla svítí z tohoto dne."));
-  const main = /*#__PURE__*/React.createElement("div", { style: { ...d2font, backgroundColor: "#0c0907", minHeight: "100vh", color: "#d8c9a3" } },
-    /*#__PURE__*/React.createElement("style", null, SHARED_CSS),
-    /*#__PURE__*/React.createElement("div", { style: { position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% -10%, rgba(60,40,15,.35) 0%, transparent 55%), radial-gradient(ellipse at 50% 110%, rgba(20,10,4,.5) 0%, transparent 60%)" } }),
-    /*#__PURE__*/React.createElement("div", { className: "mx-auto flex min-h-screen max-w-[1400px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:p-3", style: { paddingTop: "max(8px, env(safe-area-inset-top))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
-      /*#__PURE__*/React.createElement("div", { className: "flex flex-col gap-2 lg:flex-1 lg:min-w-0" },
-        topBar,
-        /*#__PURE__*/React.createElement("div", { className: "relative flex-1 overflow-hidden rounded", style: { minHeight: 240, height: "calc(100vh - 200px)" } },
-          /*#__PURE__*/React.createElement(MapView, { heroCls: hero.cls, heroPal: heroPal, entities: entities, shine: shineT, paused: paused, onEntity: onEntity, onSanctuary: onSanctuary, navTarget: navTarget, canvasSizeRef: canvasSizeRef, areaVisited: areaVisited, onAreaTap: onAreaTap, teleport: teleport }),
-          navTarget && /*#__PURE__*/React.createElement("div", { className: "pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded px-2 py-0.5 text-[10px]", style: { background: "rgba(13,9,6,.85)", color: "#ffe9a8" } }, "➤ Cíl: ", navTarget.label)),
-        /*#__PURE__*/React.createElement("div", { className: "hidden lg:block" }, dayPathPanel)),
-      /*#__PURE__*/React.createElement("aside", { className: "hidden w-[300px] shrink-0 flex-col gap-2 lg:flex" },
-        /*#__PURE__*/React.createElement("div", { className: "panelD2 flex items-center gap-2 p-2" },
-          /*#__PURE__*/React.createElement("div", { className: "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold", style: { border: "2px solid #c7a44a", background: "radial-gradient(circle at 35% 30%, #3a2c14, #140d06)", color: "#ffd700" } }, level),
-          /*#__PURE__*/React.createElement("div", { className: "flex-1" },
-            /*#__PURE__*/React.createElement("div", { className: "mb-0.5 flex justify-between text-[9px]", style: gold },
-              /*#__PURE__*/React.createElement("span", null, "Lv ", level, " — ", hero.name, " ", heroClass.glyph),
-              /*#__PURE__*/React.createElement("span", null, xpInto, "/", xpSpan, " XP")),
-            /*#__PURE__*/React.createElement("div", { className: "h-3 overflow-hidden rounded-sm border-2", style: { borderColor: "#0d0906", background: "#100a06" } },
-              /*#__PURE__*/React.createElement("div", { className: "xpfill h-full", style: { width: xpInto / xpSpan * 100 + "%" } }))),
-          floatXp && /*#__PURE__*/React.createElement("div", { className: "pointer-events-none absolute text-sm font-bold", style: { color: "#ffd700" } }, floatXp.text)),
-        dayPathPanel,
-        /*#__PURE__*/React.createElement("button", { onClick: () => { setInvOpen(true); sfxClick(); }, className: "btnD2 w-full py-1.5 text-[11px]" }, "🎒 Inventář · ⚔️ Postava"),
-        weekComplete && !weekRec.chest && /*#__PURE__*/React.createElement("button", { onClick: () => { setChestStep("closed"); setChestOpen(true); }, className: "btnD2 daybtn w-full py-2 text-xs font-bold", style: { color: "#ffd700" } }, "OTEVŘÍT TRUHLU PROMĚNY!"),
-        weekComplete && weekRec.chest && /*#__PURE__*/React.createElement("div", { className: "rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, "Truhla proměny otevřena ✓")),
-      /*#__PURE__*/React.createElement("div", { className: "lg:hidden" },
-        dayPanelOpen
-          ? /*#__PURE__*/React.createElement("div", { className: "fixed inset-x-0 bottom-0 z-30 max-h-[75vh] overflow-y-auto rounded-t-2xl", style: { background: "#140d06", borderTop: "3px solid #3a2c1c", paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
-            /*#__PURE__*/React.createElement("div", { className: "sticky top-0 flex items-center justify-between px-3 py-2", style: { background: "#140d06", borderBottom: "1px solid #2a2018" } },
-              /*#__PURE__*/React.createElement("span", { className: "text-xs font-bold", style: { color: "#ffe9a8" } }, "🚩 Dnešní cesta"),
-              /*#__PURE__*/React.createElement("button", { onClick: () => { setDayPanelOpen(false); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]" }, "✕ Zavřít")),
-            /*#__PURE__*/React.createElement("div", { className: "p-2" }, dayPathPanel))
-          : /*#__PURE__*/React.createElement("div", { className: "fixed inset-x-0 bottom-0 z-30", style: { paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
-            /*#__PURE__*/React.createElement("button", { onClick: () => { setDayPanelOpen(true); sfxClick(); }, className: "btnD2 mx-auto flex w-[94%] items-center justify-between rounded-t-lg px-3 py-2 text-[11px]", style: { color: "#ffe9a8" } },
-              "🚩 Dnešní cesta · Dnes dokončeno: ", totalActsDone === 1 ? "1 činnost" : totalActsDone + " činností",
-              /*#__PURE__*/React.createElement("span", { style: { color: "#7ec8ff" } }, "▾ Otevřít"))))));
-  const summaryModal = closeSummary && /*#__PURE__*/React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3", onClick: () => setCloseSummary(false) },
-    /*#__PURE__*/React.createElement("div", { className: "panelD2 w-full max-w-sm p-4", onClick: e => e.stopPropagation(), style: { animation: "popIn .25s ease-out" } },
-      /*#__PURE__*/React.createElement("div", { className: "text-center text-sm font-bold", style: { color: "#ffd700" } }, "🕊 Ukončit dnešní den?"),
-      /*#__PURE__*/React.createElement("div", { className: "mt-3 text-[11px]" },
-        /*#__PURE__*/React.createElement("div", { className: "mb-1", style: { color: "#7dd87d" } }, "Dnes bylo dokončeno:"),
-        areasDone.filter(a => a.done > 0).map(a => /*#__PURE__*/React.createElement("div", { key: a.id, style: { color: a.color } }, "• ", a.done, " činnost(i) — ", a.name)),
-        areasDone.every(a => a.done === 0) && /*#__PURE__*/React.createElement("div", { style: { color: "#8a7a5c" } }, "• zatím žádná činnost")),
-      /*#__PURE__*/React.createElement("div", { className: "mt-2 text-[11px]" },
-        /*#__PURE__*/React.createElement("div", { className: "mb-1", style: { color: "#8a7a5c" } }, "Další dostupné činnosti:"),
-        areasDone.filter(a => a.done < a.total).map(a => /*#__PURE__*/React.createElement("div", { key: a.id, style: { color: "#6b5f49" } }, "• ", a.name, " (", a.total - a.done, ")"))),
-      /*#__PURE__*/React.createElement("div", { className: "mt-4 grid grid-cols-2 gap-2" },
-        /*#__PURE__*/React.createElement("button", { onClick: () => setCloseSummary(false), className: "btnD2 py-2 text-xs" }, "Vrátit se a pokračovat"),
-        /*#__PURE__*/React.createElement("button", { onClick: confirmCloseDay, className: "btnD2 daybtn py-2 text-xs font-bold", style: { color: "#ffd700" } }, "Dokončit den"))));
-  return main && [/*#__PURE__*/React.createElement("div", { key: "main" }, main), summaryModal && /*#__PURE__*/React.createElement("div", { key: "summary" }, summaryModal),
-  chestOpen && React.createElement(ChestModal, { key: "chest",
-    step: chestStep,
-    onConfirm: () => {
-      sfxChest();
-      setChestStep("open");
-      setSave(s2 => {
-        const w = s2.weeks[wk] || { days: {}, chest: false };
-        const nx = s2.xp + 300;
-        if (levelFor(nx) > levelFor(s2.xp)) {
-          const nl = levelFor(nx);
-          window.setTimeout(() => setLevelUp(nl), 300);
-          window.setTimeout(() => setLevelUp(null), 2800);
-          sfxLevel();
-        }
-        return { ...s2, xp: nx, inv: [...s2.inv, crownItem()], weeks: { ...s2.weeks, [wk]: { ...w, chest: true } } };
+  const [uxScreen, setUxScreen] = useState(null);
+  const [uxReduced, setUxReduced] = useState(false);
+  const [flashAct, setFlashAct] = useState(null);
+  useEffect(() => {
+    if (window.matchMedia) {
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setUxReduced(mq.matches);
+      const h = e => setUxReduced(e.matches);
+      if (mq.addEventListener) mq.addEventListener("change", h);
+      return () => { if (mq.removeEventListener) mq.removeEventListener("change", h); };
+    }
+  }, []);
+  function uxToggleAct(actId) {
+    const rec = todayRec;
+    const isDone = rec && rec.acts && rec.acts[actId] && rec.acts[actId].done;
+    if (isDone) uncompleteActivity(actId); else completeActivity(actId);
+    if (!uxReduced) {
+      setFlashAct(actId);
+      window.setTimeout(() => setFlashAct(null), 500);
+    }
+  }
+  function renderMenu() {
+    const items = [
+      { id: "week", label: "Týden", sub: "Přehled cesty ChangeON" },
+      { id: "trial", label: "Zkouška dne", sub: "Volitelná herní aktivita" },
+      { id: "gear", label: "Výbava a postava", sub: "Inventář a statistiky" },
+      { id: "help", label: "Nápověda", sub: "Krátký průvodce hrou" },
+      { id: "settings", label: "Nastavení", sub: "Testovací režim, smazání dat" }
+    ];
+    return React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": "Hlavní menu" },
+      React.createElement("div", { className: "ux-screen-head" },
+        React.createElement("button", { className: "ux-back", onClick: () => setUxScreen(null), "aria-label": "Zavřít menu" }, "← Zpět"),
+        React.createElement("span", { className: "ux-screen-title" }, "Menu")),
+      React.createElement("div", { className: "ux-screen-body" },
+        React.createElement("div", { className: "ux-menu-list" },
+          items.map(m => {
+            let children = React.createElement("span", null,
+              React.createElement("span", { style: { display: "block" } }, m.label),
+              React.createElement("span", { className: "sub" }, m.sub));
+            return React.createElement("button", { key: m.id, className: "ux-menu-item", onClick: () => {
+              if (m.id === "week") setUxScreen("week");
+              else if (m.id === "trial") { setUxScreen(null); setEncounterDay(todayIdx); }
+              else if (m.id === "gear") { setUxScreen(null); setInvOpen(true); }
+              else if (m.id === "help") { setUxScreen(null); setObStep(0); }
+              else if (m.id === "settings") { setUxScreen(null); setSettingsOpen(true); }
+            } }, children);
+          }))));
+  }
+  function renderUxShell() {
+    const areaObj = uxScreen && uxScreen.areaId ? ACTIVITY_AREAS.find(x => x.id === uxScreen.areaId) : null;
+    if (uxScreen === "week") {
+      return React.createElement(WeekScreen, { save: save, wk: wk, todayIdx: todayIdx, onBack: () => setUxScreen(null) });
+    }
+    if (areaObj) {
+      return React.createElement(AreaScreen, {
+        area: areaObj, todayRec: todayRec, dayClosed: dayClosed, journalStatus: journalStatus,
+        flashId: flashAct,
+        onBack: () => setUxScreen(null),
+        onToggleAct: uxToggleAct,
+        onOpenJournal: () => setJournalOpen(true)
       });
-      spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50);
-    },
-    onClose: () => { setChestOpen(false); sfxClick(); }
-  }),
-  viewDay !== null && weekRec.days[viewDay] && React.createElement(ViewDayModal, { key: "viewday",
-    dayIdx: viewDay,
-    rec: weekRec.days[viewDay],
-    onClose: () => { setViewDay(null); sfxClick(); }
-  }),
-  levelUp !== null && React.createElement("div", { key: "levelup", className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center" },
-    React.createElement("div", { className: "absolute inset-0", style: { background: "radial-gradient(circle, rgba(255,215,0,.35) 0%, transparent 60%)", animation: "levelFlash 2.4s ease-out forwards" } }),
-    React.createElement("div", { className: "text-center", style: { animation: "popIn .5s ease-out" } },
-      React.createElement("div", { className: "logoGold text-4xl font-bold sm:text-5xl", style: { letterSpacing: "0.2em" } }, "LEVEL UP!"),
-      React.createElement("div", { className: "mt-2 text-lg sm:text-xl", style: { color: "#fff7d8" } }, "Úroveň ", levelUp, " — jsi o krok blíž proměně!"))),
-  React.createElement("div", { key: "particles", className: "pointer-events-none fixed inset-0 z-50" },
-    particles.map(p => React.createElement("div", { key: p.id, style: { position: "absolute", left: p.x, top: p.y, width: p.size, height: p.size, background: p.color, boxShadow: "0 0 6px " + p.color, "--dx": p.dx, "--dy": p.dy, animation: "floatUp 1s ease-out forwards" } }))),
-  toast && React.createElement("div", { key: "toast", role: "status", "aria-live": "polite", className: "panelD2 fixed bottom-6 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 px-3 py-2 text-center text-[11px]", style: { animation: "popIn .25s ease-out" } }, toast),
-  invOpen && React.createElement(InvModal, { key: "inv", save: save, gear: gear, hero: hero, heroClass: heroClass, onEquip: equipItem, onClose: () => { setInvOpen(false); sfxClick(); } }),
-  journalOpen && React.createElement(JournalModal, { key: "journal", dateK: todayKey, entry: journalEntry, dayClosed: dayClosed, onClose: () => setJournalOpen(false), onSave: saveJournalTexts, onComplete: () => { completeJournalAct(); setJournalOpen(false); } }),
-  obStep !== null && React.createElement(Onboarding, { key: "ob", step: obStep, onNext: () => setObStep(st => Math.min(ONBOARDING_STEPS.length - 1, st + 1)), onSkip: finishOnboarding }),
-  encounterDay !== null && React.createElement(TrialIntroModal, { key: "trial", dayIdx: encounterDay, onClose: () => { setEncounterDay(null); sfxClick(); }, onStart: () => { const dd = encounterDay; setEncounterDay(null); setBattle({ dayIdx: dd, catId: "ozn", tasks: [], bonus: "" }); } }),
-  areaTapMenu && React.createElement(AreaTapMenuModal, { key: "areatap", areaId: areaTapMenu.areaId, onTeleport: () => teleportToArea(areaTapMenu.areaId), onOpen: () => openAreaPanel(areaTapMenu.areaId), onClose: () => setAreaTapMenu(null) }),
-  weekView && React.createElement(WeekViewModal, { key: "weekview", save: save, wk: wk, todayIdx: todayIdx, onClose: () => { setWeekView(false); sfxClick(); } }),
-  settingsOpen && React.createElement(SettingsModal, { key: "settings", testMode: testMode, resetArmed: resetArmed, onToggleTest: () => setTestMode(t => !t), onReset: resetAll, onClose: () => { setSettingsOpen(false); } })];
-}
-function InvModal({ save, gear, hero, heroClass, onEquip, onClose }) {
-  return React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", style: { backgroundColor: "rgba(5,3,2,.88)" }, onClick: onClose },
-    React.createElement("div", { className: "panelD2 max-h-[85vh] w-full max-w-lg overflow-y-auto p-4", onClick: e => e.stopPropagation() },
-      React.createElement("div", { className: "mb-2 flex items-center justify-between" },
-        React.createElement("div", { className: "text-sm font-bold", style: { color: "#ffd700" } }, "Inventář · ", hero.name, " (", heroClass.name, ")"),
-        React.createElement("button", { onClick: onClose, className: "btnD2 px-2 py-0.5 text-xs", style: { color: "#8a7a5c" } }, "✕")),
-      React.createElement("div", { className: "grid grid-cols-2 gap-2" },
-        React.createElement("div", null,
-          React.createElement("div", { className: "mb-1 text-[10px] uppercase", style: { color: "#8a7a5c" } }, "Statistiky"),
-          React.createElement(Stat, { label: "Útok", value: gear.attack }),
-          React.createElement(Stat, { label: "Obrana", value: gear.defense }),
-          React.createElement(Stat, { label: "Víra (HP)", value: gear.maxHp }),
-          React.createElement(Stat, { label: "Kritický zásah", value: gear.crit + " %" }),
-          React.createElement(Stat, { label: "Gear skóre", value: gear.gearScore })),
-        React.createElement("div", null,
-          React.createElement("div", { className: "mb-1 text-[10px] uppercase", style: { color: "#8a7a5c" } }, "Předměty (" + save.inv.length + ")"),
-          save.inv.length === 0 && React.createElement("div", { className: "text-[10px]", style: { color: "#6b5f49" } }, "Zatím prázdno — plň činnosti!"),
-          save.inv.slice(-12).reverse().map(it => {
-            const rar = rarityOf(it.rarityId);
-            const isEq = Object.values(save.equip).indexOf(it.uid) >= 0;
-            return React.createElement("button", { key: it.uid, onClick: () => onEquip(it), className: "mb-1 flex w-full items-center gap-2 rounded border-2 px-2 py-1 text-left", style: { borderColor: isEq ? "#ffd700" : "#2a2018", background: "rgba(0,0,0,.3)" } },
-              React.createElement(PixelSprite, { rows: ICONS[it.icon] || ICONS.book, palette: iconPalette(it.color), scale: 1, style: { width: 20, height: 20 } }),
-              React.createElement("span", { className: "text-[9px]", style: { color: rar.color } }, it.name, isEq ? " · nasazeno" : ""));
-          })))));
+    }
+    return null;
+  }
+  const menuItems = [
+    { id: "week", label: "Týden", sub: "Přehled cesty ChangeON" },
+    { id: "trial", label: "Zkouška dne", sub: "Volitelná herní aktivita" },
+    { id: "gear", label: "Výbava a postava", sub: "Inventář a statistiky" },
+    { id: "help", label: "Nápověda", sub: "Krátký průvodce hrou" },
+    { id: "settings", label: "Nastavení", sub: "Testovací režim, smazání dat" }
+  ];
+  const summaryModal = closeSummary ? React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": "Ukončit dnešní den" },
+    React.createElement("div", { className: "ux-screen-head" },
+      React.createElement("button", { className: "ux-back", onClick: () => setCloseSummary(false), "aria-label": "Zavřít souhrn" }, "← Zpět"),
+      React.createElement("span", { className: "ux-screen-title" }, "Ukončit dnešní den?")),
+    React.createElement("div", { className: "ux-screen-body" },
+      React.createElement("div", { style: { fontSize: 15, marginBottom: 8, color: "var(--ux-green)", fontWeight: 600 } }, "Dnes bylo dokončeno:"),
+      areasDone.filter(a => a.done > 0).map(a => React.createElement("div", { key: a.id, style: { fontSize: 14.5, color: "var(--ux-text2)", marginBottom: 4 } }, "· ", a.done === 1 ? "1 činnost — " : a.done + " činnosti — ", a.name)),
+      areasDone.every(a => a.done === 0) ? React.createElement("div", { style: { fontSize: 14, color: "var(--ux-mut)" } }, "Zatím žádná činnost") : null,
+      React.createElement("div", { style: { fontSize: 15, margin: "14px 0 6px", color: "var(--ux-text2)", fontWeight: 600 } }, "Další dostupné činnosti:"),
+      areasDone.filter(a => a.done < a.total).map(a => React.createElement("div", { key: "r" + a.id, style: { fontSize: 14, color: "var(--ux-mut)", marginBottom: 3 } }, "· ", a.name))),
+    React.createElement("div", { className: "ux-screen-foot", style: { display: "flex", gap: 10 } },
+      React.createElement("button", { className: "ux-menu-item", style: { flex: 1, justifyContent: "center" }, onClick: () => setCloseSummary(false) }, "Vrátit se a pokračovat"),
+      React.createElement("button", { className: "ux-btn-primary", style: { flex: 1 }, onClick: confirmCloseDay }, "Dokončit den"))) : null;
+  return React.createElement("div", { className: "ux-root", key: "uxhome" },
+    React.createElement("style", null, UX_CSS),
+    uxScreen === "menu" ? renderMenu() : null,
+    !uxScreen || uxScreen === "menu" ? React.createElement(HomeScreen, {
+      heroName: hero.name, level: level, todayIdx: todayIdx, pearlStage: pearlStage,
+      areasDone: areasDone, totalActsDone: totalActsDone, areasActive: areasActive,
+      dayClosed: dayClosed, journalStatus: journalStatus, reduced: uxReduced,
+      onOpenArea: id => setUxScreen({ areaId: id }),
+      onFinishDay: requestCloseDay
+    }) : null,
+    !uxScreen || uxScreen === "menu" ? null : renderUxShell(),
+    (!uxScreen || uxScreen === "menu") ? React.createElement("button", {
+      className: "ux-menu-btn", style: { position: "fixed", top: "max(10px, env(safe-area-inset-top))", right: 12, zIndex: 30 },
+      onClick: () => setUxScreen("menu"), "aria-label": "Otevřít hlavní menu"
+    }, React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: "var(--ux-text)", strokeWidth: 2, strokeLinecap: "round", "aria-hidden": true },
+      React.createElement("path", { d: "M4 7h16M4 12h16M4 17h16" }))) : null,
+    summaryModal,
+    chestOpen && React.createElement(ChestModal, { key: "chest", step: chestStep,
+      onConfirm: () => { sfxChest(); setChestStep("open"); setSave(s2 => { const w = s2.weeks[wk] || { days: {}, chest: false }; const nx = s2.xp + 300; if (levelFor(nx) > levelFor(s2.xp)) { const nl = levelFor(nx); window.setTimeout(() => setLevelUp(nl), 300); window.setTimeout(() => setLevelUp(null), 2800); sfxLevel(); } return { ...s2, xp: nx, inv: [...s2.inv, crownItem()], weeks: { ...s2.weeks, [wk]: { ...w, chest: true } } }; }); spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50); },
+      onClose: () => { setChestOpen(false); sfxClick(); } }),
+    viewDay !== null && weekRec.days[viewDay] && React.createElement(ViewDayModal, { key: "viewday", dayIdx: viewDay, rec: weekRec.days[viewDay], onClose: () => { setViewDay(null); sfxClick(); } }),
+    encounterDay !== null && React.createElement(TrialIntroModal, { key: "trial", dayIdx: encounterDay, onClose: () => { setEncounterDay(null); sfxClick(); }, onStart: () => { const dd = encounterDay; setEncounterDay(null); setBattle({ dayIdx: dd, catId: "ozn", tasks: [], bonus: "" }); } }),
+    battle && React.createElement(BattleModal, { key: "battle", battle: battle, gear: gear, heroCls: hero.cls, heroPal: heroPal,
+      onComplete: () => completeDayForTrial(),
+      spawnParticles: spawnParticles,
+      onClose: (lv, nl) => { setBattle(null); if (lv && nl) { setLevelUp(nl); window.setTimeout(() => setLevelUp(null), 2400); } } }),
+    levelUp !== null && React.createElement("div", { key: "levelup", className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center" },
+      React.createElement("div", { className: "absolute inset-0", style: { background: "radial-gradient(circle, rgba(201,162,39,.30) 0%, transparent 60%)", animation: "levelFlash 2.4s ease-out forwards" } }),
+      React.createElement("div", { className: "text-center", style: { animation: uxReduced ? "none" : "popIn .5s ease-out" } },
+        React.createElement("div", { style: { fontSize: 28, fontWeight: 700, color: "#C9A227" } }, "Level up — úroveň ", levelUp))),
+    React.createElement("div", { key: "particles", className: "pointer-events-none fixed inset-0 z-50" }, particles.map(p => React.createElement("div", { key: p.id, style: { position: "absolute", left: p.x, top: p.y, width: p.size, height: p.size, background: p.color, boxShadow: "0 0 6px " + p.color, "--dx": p.dx, "--dy": p.dy, animation: "floatUp 1s ease-out forwards" } }))),
+    toast && React.createElement("div", { key: "toast", role: "status", "aria-live": "polite", style: { position: "fixed", bottom: "calc(max(14px, env(safe-area-inset-bottom)) + 64px)", left: "50%", transform: "translateX(-50%)", background: "#22303C", color: "#F6FAFD", borderRadius: 10, padding: "10px 16px", fontSize: 14, maxWidth: "88vw", textAlign: "center", zIndex: 60, boxShadow: "0 4px 14px rgba(34,48,60,.3)" } }, toast),
+    journalOpen && React.createElement(JournalModal, { key: "journal", dateK: todayKey, entry: journalEntry, dayClosed: dayClosed, onClose: () => setJournalOpen(false), onSave: saveJournalTexts, onComplete: () => { completeJournalAct(); setJournalOpen(false); } }),
+    settingsOpen && React.createElement(SettingsModal, { key: "settings", testMode: testMode, resetArmed: resetArmed, onToggleTest: () => setTestMode(t => !t), onReset: resetAll, onClose: () => setSettingsOpen(false) }),
+    invOpen && React.createElement(InvModal, { key: "inv", save: save, gear: gear, hero: hero, heroClass: heroClass, onEquip: equipItem, onClose: () => { setInvOpen(false); sfxClick(); } }),
+    obStep !== null && React.createElement(Onboarding, { key: "ob", step: obStep, onNext: () => setObStep(st => Math.min(ONBOARDING_STEPS.length - 1, st + 1)), onSkip: finishOnboarding }));
 }
 function Stat({
   label,
@@ -2931,6 +3069,7 @@ function ChestModal({
     }
   }, "Na dal\u0161\xED t\xFDden! \u2694"))));
 }
+
 
 </script>
 <script>
