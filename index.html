@@ -2060,8 +2060,11 @@ function rpgLootPool(clsId) {
 }
 function rpgCanEquip(item, clsId) {
   if (!item) return false;
-  if (item.allowedClass !== "any" && item.allowedClass !== clsId) return false;
-  return RPG_SLOTS.indexOf(item.slot) >= 0;
+  if (RPG_SLOTS.indexOf(item.slot) < 0) return false;
+  // def hledej i pres rpgId (save itemy nemusi mit allowedClass pole)
+  const def = item.rpgId ? RPG_ITEMS.find(d => d.id === item.rpgId) : null;
+  const allowed = item.allowedClass || (def ? def.allowedClass : null);
+  return !allowed || allowed === "any" || allowed === clsId;
 }
 
 /* ===== Anti-farm datová struktura (čisté funkce, bez UI) ===== */
@@ -2600,7 +2603,150 @@ function ClassSelectionFlow({ existing, heroName, level, onConfirm, onSkip }) {
       React.createElement("button", { className: "ux-btn-primary", onClick: () => setStep(1), style: (!existing && step === 0) ? {} : { display: "none" } }, "Vybrat třídu")));
 }
 
-function HomeScreen({ todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay, onOpenMenu }) {
+/* ===== C2b: Karta hrdiny (Home) + Hrdina screen + Schopnosti + Inventář ===== */
+function rpgEquippedMap(saveObj) {
+  const eq = (saveObj && saveObj.equip) || {};
+  const inv = (saveObj && saveObj.inv) || [];
+  const out = {};
+  RPG_SLOTS.forEach(slot => {
+    const uid = eq[slot];
+    const it = inv.find(x => x.uid === uid);
+    if (it) out[slot] = it;
+  });
+  return out;
+}
+function rpgGearBonus(equippedMap) {
+  const g = { sila: 0, obrana: 0, svetlo: 0 };
+  Object.values(equippedMap || {}).forEach(it => {
+    if (it && it.bonus) { g.sila += it.bonus.sila || 0; g.obrana += it.bonus.obrana || 0; g.svetlo += it.bonus.svetlo || 0; }
+  });
+  return g;
+}
+function rpgAbilityDesc(clsId, ab) {
+  if (clsId === "strazce") {
+    if (ab.id === "uder") return "Fyzický útok mečem.";
+    if (ab.id === "postoj") return "Zcela zablokuje příští nepřátelský útok a připraví zesílený protiútok.";
+    if (ab.id === "odrazeni") return "Silný protiútok — nejsilnější hned po úspěšném bloku.";
+  }
+  if (clsId === "posel") {
+    if (ab.id === "zasah") return "Přesný zásah s vyšší šancí na kritický zásah.";
+    if (ab.id === "krok") return "Uhyne příštímu běžnému útoku; proti silnému útoku utrpí jen zlomek poškození.";
+    if (ab.id === "misto") return "Označí nepřítele — kritické zásahy do označeného cíle jsou pravděpodobnější.";
+  }
+  if (clsId === "ucednik") {
+    if (ab.id === "paprsek") return "Slabší světelný útok, který obnoví část Záře.";
+    if (ab.id === "ocisteni") return "Odstraní negativní stav a obnoví část zdraví.";
+    if (ab.id === "slovo") return "Silné poškození podle Světla a dočasné oslabení nepřítele.";
+  }
+  return ab.name;
+}
+function rpgAbilityIcon(clsId, abId) {
+  if (abId === "uder") return "⚔";
+  if (abId === "postoj") return "🛡";
+  if (abId === "odrazeni") return "✦";
+  if (abId === "zasah") return "🏹";
+  if (abId === "krok") return "🌀";
+  if (abId === "misto") return "◎";
+  if (abId === "paprsek") return "✨";
+  if (abId === "ocisteni") return "💧";
+  if (abId === "slovo") return "📖";
+  return "•";
+}
+function HeroCard({ saveObj, level, xpInto, xpSpan, onOpen }) {
+  const cls = saveObj.hero && saveObj.hero.cls;
+  const clsName = (RPG_CLASSES.find(c => c.id === cls) || {}).name || "Poutník";
+  return React.createElement("button", { className: "ux-card", style: { minHeight: 56, padding: "10px 14px" }, onClick: onOpen, "aria-label": "Otevřít obrazovku Hrdina" },
+    React.createElement("span", { style: { flexShrink: 0 } }, heroLayeredSprite(cls, { size: 40, equipped: rpgEquippedMap(saveObj) })),
+    React.createElement("span", { style: { flex: 1, textAlign: "left" } },
+      React.createElement("span", { style: { display: "block", fontSize: 15.5, fontWeight: 600 } }, saveObj.hero.name, " · ", clsName),
+      React.createElement("span", { style: { display: "block", fontSize: 12, color: "var(--ux-mut)" } }, "Úroveň ", level, " · ", xpInto, "/", xpSpan, " XP"),
+      React.createElement("span", { style: { display: "block", height: 4, background: "var(--ux-line)", borderRadius: 2, marginTop: 3, overflow: "hidden" } },
+        React.createElement("span", { style: { display: "block", width: (xpInto / xpSpan * 100) + "%", height: "100%", background: "var(--ux-gold)" } }))),
+    React.createElement("span", { style: { color: "var(--ux-mut)", fontSize: 20 } }, "›"));
+}
+const STAT_INFO = {
+  sila: { name: "Síla", desc: "Fyzické poškození." },
+  obrana: { name: "Obrana", desc: "Snižuje běžné přijaté poškození." },
+  svetlo: { name: "Světlo", desc: "Síla některých schopností." },
+  vytrvalost: { name: "Vytrvalost", desc: "Maximální zdraví." }
+};
+function HeroScreen({ saveObj, level, xpInto, xpSpan, onBack, onEquip, onTab, tab }) {
+  const cls = saveObj.hero.cls;
+  const clsName = (RPG_CLASSES.find(c => c.id === cls) || {}).name || "";
+  const eq = rpgEquippedMap(saveObj);
+  const gear = rpgGearBonus(eq);
+  const st = rpgHeroStats(cls, level, gear);
+  const stats = { sila: st.sila, obrana: st.obrana, svetlo: st.svetlo, vytrvalost: st.maxHp };
+  const equippedUid = slot => saveObj.equip && saveObj.equip[slot];
+  const gearList = RPG_SLOTS.map(slot => {
+    const it = eq[slot];
+    return React.createElement("div", { key: slot, style: { display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid var(--ux-line)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 } },
+      React.createElement("span", { style: { fontSize: 12, color: "var(--ux-mut)", width: 60 } }, slot === "zbran" ? "Zbraň" : slot === "zbroj" ? "Zbroj" : "Doplněk"),
+      React.createElement("span", { style: { flex: 1, fontSize: 14.5, fontWeight: it ? 600 : 400, color: it ? "var(--ux-text)" : "var(--ux-mut)" } },
+        it ? it.name : "(prázdné)"));
+  });
+  return React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": "Hrdina" },
+    React.createElement("div", { className: "ux-screen-head" },
+      React.createElement("button", { className: "ux-back", onClick: onBack, "aria-label": "Zpět" }, "← Zpět"),
+      React.createElement("span", { className: "ux-screen-title" }, "Hrdina")),
+    React.createElement("div", { className: "ux-screen-body" },
+      React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginBottom: 12 } },
+        heroLayeredSprite(cls, { size: 150, equipped: eq }),
+        React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, saveObj.hero.name, " · ", clsName, " · Úroveň ", level)),
+      React.createElement("div", { style: { marginBottom: 14 } },
+        React.createElement("div", { style: { fontSize: 12.5, color: "var(--ux-mut)", marginBottom: 4 } }, "Zkušenost: ", xpInto, " / ", xpSpan),
+        React.createElement("div", { style: { height: 8, background: "var(--ux-line)", borderRadius: 4, overflow: "hidden" } },
+          React.createElement("div", { style: { width: (xpInto / xpSpan * 100) + "%", height: "100%", background: "var(--ux-gold)" } }))),
+      tab !== "inv" ? React.createElement("div", null,
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
+          Object.keys(stats).map(k => React.createElement("div", { key: k, title: STAT_INFO[k].desc, style: { background: "#fff", border: "1px solid var(--ux-line)", borderRadius: 10, padding: "10px 12px" } },
+            React.createElement("div", { style: { fontSize: 12, color: "var(--ux-mut)" } }, STAT_INFO[k].name),
+            React.createElement("div", { style: { fontSize: 18, fontWeight: 700 } }, stats[k])))),
+        React.createElement("div", { style: { fontSize: 13, color: "var(--ux-mut)", marginBottom: 6 } }, gearList)) : null,
+      tab === "ab" ? React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 600, margin: "4px 0 8px" } }, "Schopnosti"),
+        RPG_ABILITIES[cls].map(ab => React.createElement("div", { key: ab.id, style: { background: "#fff", border: "1px solid var(--ux-line)", borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", gap: 10 } },
+          React.createElement("span", { style: { fontSize: 22 } }, rpgAbilityIcon(cls, ab.id)),
+          React.createElement("span", { style: { flex: 1 } },
+            React.createElement("span", { style: { display: "block", fontSize: 15, fontWeight: 600 } }, ab.name, " ", ab.type === "basic" ? "· základní" : ab.type === "defensive" || ab.type === "support" ? "· obranná" : "· charakteristická"),
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: "var(--ux-text2)", marginTop: 2 } }, rpgAbilityDesc(cls, ab)),
+            ab.cost ? React.createElement("span", { style: { display: "block", fontSize: 12, color: "var(--ux-blue)", marginTop: 2 } }, "Záře: ", ab.cost) : null)))) : null,
+      tab === "inv" ? rpgInventoryTab(saveObj, cls, onEquip) : null),
+    React.createElement("div", { className: "ux-screen-foot", style: { display: "flex", gap: 10 } },
+      React.createElement("button", { className: "ux-menu-item", style: { flex: 1, justifyContent: "center", minHeight: 46 }, onClick: () => onTab("ab") }, "Schopnosti"),
+      React.createElement("button", { className: "ux-menu-item", style: { flex: 1, justifyContent: "center", minHeight: 46 }, onClick: () => onTab("inv") }, "Inventář"),
+      React.createElement("button", { className: "ux-btn-primary", style: { flex: 1 }, onClick: onBack }, "Hotovo")));
+}
+function rpgInventoryTab(saveObj, cls, onEquip) {
+  const items = saveObj.inv || [];
+  const eqMap = rpgEquippedMap(saveObj);
+  const rows = items.map(it => {
+    const isEq = eqMap[it.slot] && eqMap[it.slot].uid === it.uid;
+    const oldRelic = !RPG_SLOTS.includes(it.slot);
+    const canEq = !oldRelic && rpgCanEquip(it, cls);
+    const meta = oldRelic
+      ? "Starší předmět – zatím nelze nasadit."
+      : (it.slot === "zbran" ? "zbraň" : it.slot === "zbroj" ? "zbroj" : "doplněk")
+        + (it.bonus ? " · " + Object.keys(it.bonus).map(k => (STAT_INFO[k] ? STAT_INFO[k].name : k) + " +" + it.bonus[k]).join(" · ") : "");
+    const btn = (!oldRelic && !isEq)
+      ? React.createElement("button", { disabled: !canEq, onClick: () => { if (canEq) onEquip(it); }, style: { color: canEq ? "#fff" : "var(--ux-mut)", background: canEq ? "var(--ux-gold)" : "none", padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: canEq ? "none" : "1px solid var(--ux-line)", fontFamily: "inherit" } }, canEq ? "Nasadit" : "Nelze nasadit")
+      : null;
+    return React.createElement("div", { key: it.uid, style: { background: "#fff", border: "1px solid var(--ux-line)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+        React.createElement("span", { style: { flex: 1 } },
+          React.createElement("span", { style: { display: "block", fontSize: 14.5, fontWeight: 600 } }, it.name, isEq ? " · nasazeno" : ""),
+          React.createElement("span", { style: { display: "block", fontSize: 12.5, color: "var(--ux-mut)" } }, meta)),
+        btn));
+  });
+  const empty = items.length === 0 ? React.createElement("div", { style: { fontSize: 13.5, color: "var(--ux-mut)" } }, "Inventář je zatím prázdný.") : null;
+  return React.createElement("div", null,
+    React.createElement("div", { style: { fontSize: 15, fontWeight: 600, margin: "4px 0 8px" } }, "Inventář"),
+    empty,
+    rows);
+
+}
+
+function HomeScreen({ todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay, onOpenMenu, heroCard }) {
   return React.createElement("div", { className: "ux-root" },
     React.createElement("div", { className: "ux-header" },
       React.createElement("span", { className: "ux-day" }, DAY_NAMES[todayIdx]),
@@ -2612,7 +2758,8 @@ function HomeScreen({ todayIdx, pearlStage, areasDone, totalActsDone, areasActiv
     React.createElement("div", { className: "ux-pearl-zone" },
       React.createElement(UxPearl, { stage: pearlStage, size: 128, reduced: reduced }),
       React.createElement("span", { className: "ux-stage-label" }, "ChangeON", pearlStage)),
-    React.createElement("div", { className: "ux-hint" }, dayClosed ? "Dnes je den uzavřen. Odpočiň si." : "Vyber oblast, které ses dnes věnoval."),
+    heroCard ? React.createElement("div", { style: { padding: "0 16px", maxWidth: 480, margin: "0 auto 10px", width: "100%" } }, heroCard) : null,
+    React.createElement("div", { className: "ux-hint" }, dayClosed ? "Dnes je den uzavřen. Odpočiň si." : "Čemu ses dnes věnoval?"),
     React.createElement("div", { className: "ux-areas" },
       areasDone.map(a => {
         const done = a.done > 0;
@@ -2720,6 +2867,8 @@ function App() {
   const [journalOpen, setJournalOpen] = useState(false);
   const [obStep, setObStep] = useState(null);
   const [classFlow, setClassFlow] = useState(null); // {existing:bool} — C2a
+  const [heroView, setHeroView] = useState(false);
+  const [heroTab, setHeroTab] = useState(null);
   const [areaTapMenu, setAreaTapMenu] = useState(null);
   const [teleport, setTeleport] = useState(null);
   const [weekView, setWeekView] = useState(false);
@@ -2824,6 +2973,11 @@ function App() {
   }
   function completeDayForTrial() { const prevLevel = levelFor(save.xp); const gain = 60; const item = rollItem(); const nextXp = save.xp + gain; setSave(sv => ({ ...sv, xp: nextXp, inv: [...sv.inv, item] })); const newLevel = levelFor(nextXp); return { gain, item, leveled: newLevel > prevLevel, newLevel }; }
 
+  function rpgEquipItem(item) {
+    if (!save.hero || !rpgCanEquip(item, save.hero.cls)) return;
+    sfxClick();
+    setSave(sv => ({ ...sv, equip: { ...sv.equip, [item.slot]: item.uid } }));
+  }
   function needsClassChoice(sv) {
     if (!sv) return { needed: false };
     if (!sv.hero) return { needed: false }; // novy hráč — Creation flow existuje
@@ -3050,7 +3204,7 @@ function App() {
     const items = [
       { id: "week", label: "Týden", sub: "Přehled cesty ChangeON" },
       { id: "trial", label: "Zkouška dne", sub: "Volitelná herní aktivita" },
-      { id: "gear", label: "Výbava a postava", sub: "Inventář a statistiky" },
+      { id: "gear", label: "Hrdina", sub: "Postava, schopnosti, výbava" },
       { id: "help", label: "Nápověda", sub: "Krátký průvodce hrou" },
       { id: "settings", label: "Nastavení", sub: "Testovací režim, smazání dat" }
     ];
@@ -3067,7 +3221,7 @@ function App() {
             return React.createElement("button", { key: m.id, className: "ux-menu-item", onClick: () => {
               if (m.id === "week") setUxScreen("week");
               else if (m.id === "trial") { setUxScreen(null); setEncounterDay(todayIdx); }
-              else if (m.id === "gear") { setUxScreen(null); setInvOpen(true); }
+              else if (m.id === "gear") { setUxScreen(null); setHeroView(true); }
               else if (m.id === "help") { setUxScreen(null); setObStep(0); }
               else if (m.id === "settings") { setUxScreen(null); setSettingsOpen(true); }
             } }, children);
@@ -3096,6 +3250,7 @@ function App() {
     { id: "help", label: "Nápověda", sub: "Krátký průvodce hrou" },
     { id: "settings", label: "Nastavení", sub: "Testovací režim, smazání dat" }
   ];
+  const heroScreenEl = heroView ? React.createElement(HeroScreen, { key: "heroscreen", saveObj: save, level: level, xpInto: xpInto, xpSpan: xpSpan, onBack: () => { setHeroView(false); setHeroTab(null); }, onEquip: rpgEquipItem, onTab: setHeroTab, tab: heroTab }) : null;
   const summaryModal = closeSummary ? React.createElement("div", { className: "ux-screen", role: "dialog", "aria-label": "Ukončit dnešní den" },
     React.createElement("div", { className: "ux-screen-head" },
       React.createElement("button", { className: "ux-back", onClick: () => setCloseSummary(false), "aria-label": "Zavřít souhrn" }, "← Zpět"),
@@ -3124,10 +3279,12 @@ function App() {
       dayClosed: dayClosed, journalStatus: journalStatus, reduced: uxReduced,
       onOpenArea: id => setUxScreen({ areaId: id }),
       onOpenMenu: () => setUxScreen("menu"),
+      heroCard: React.createElement(HeroCard, { saveObj: save, level: level, xpInto: xpInto, xpSpan: xpSpan, onOpen: () => setHeroView(true) }),
       onFinishDay: requestCloseDay
     }) : null,
     !uxScreen || uxScreen === "menu" ? null : renderUxShell(),
     
+    heroScreenEl,
     summaryModal,
     chestOpen && React.createElement(ChestModal, { key: "chest", step: chestStep,
       onConfirm: () => { sfxChest(); setChestStep("open"); setSave(s2 => { const w = s2.weeks[wk] || { days: {}, chest: false }; const nx = s2.xp + 300; if (levelFor(nx) > levelFor(s2.xp)) { const nl = levelFor(nx); window.setTimeout(() => setLevelUp(nl), 300); window.setTimeout(() => setLevelUp(null), 2800); sfxLevel(); } return { ...s2, xp: nx, inv: [...s2.inv, crownItem()], weeks: { ...s2.weeks, [wk]: { ...w, chest: true } } }; }); spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50); },
