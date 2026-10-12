@@ -320,6 +320,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <script>
 
 
+
 const {
   useState,
   useEffect,
@@ -914,11 +915,11 @@ const BOSS_ROWS = ["..H...XXXX...H..", ".HH..XDDXXD..HH.", ".XHXXXXXXXXXXHX.", "
 const PEARL_STAGES = [1, 2, 3, 4, 5, 6, 7].map(n => ({
   n,
   label: "ChangeON" + n,
-  cracks: n <= 2 ? 5 : n === 3 ? 3 : n === 4 ? 2 : n === 5 ? 1 : 0,
+  cracks: n <= 2 ? 4 : n === 3 ? 3 : n === 4 ? 2 : n === 5 ? 1 : 0,
   lights: n,
-  rim: n <= 2 ? "#3d4b57" : n === 3 ? "#6e8296" : n === 4 ? "#9fb6cc" : n === 5 ? "#cfe3f2" : n === 6 ? "#eaf5fc" : "#ffffff",
-  body: n <= 2 ? "#52616e" : n === 3 ? "#75899b" : n === 4 ? "#9db4c8" : n === 5 ? "#c8dbea" : n === 6 ? "#e2f0f8" : "#f4fbff",
-  glow: n <= 1 ? 0 : n === 2 ? 3 : n === 3 ? 6 : n === 4 ? 10 : n === 5 ? 15 : n === 6 ? 22 : 32,
+  rim: n <= 2 ? "#8fa3b0" : n === 3 ? "#a5b8c8" : n === 4 ? "#bcd0de" : n === 5 ? "#d5e6f0" : n === 6 ? "#e8f4fa" : "#ffffff",
+  body: n <= 2 ? "#b8c8d2" : n === 3 ? "#c9d8e2" : n === 4 ? "#dbe9f1" : n === 5 ? "#e8f2f8" : n === 6 ? "#f0f8fc" : "#f8fdff",
+  glow: n <= 1 ? 4 : n === 2 ? 8 : n === 3 ? 12 : n === 4 ? 16 : n === 5 ? 20 : n === 6 ? 26 : 36,
   sparkles: n >= 5 ? n - 4 : 0
 }));
 function PearlStage({ stage, size = 48, animate = true }) {
@@ -950,6 +951,10 @@ function PearlStage({ stage, size = 48, animate = true }) {
         ctx.arc(cx, cy, rad + st.glow, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.fillStyle = "rgba(120,145,165,.18)";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + rad * 1.08, rad * 0.75, rad * 0.16, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, rad, 0, Math.PI * 2);
@@ -963,8 +968,9 @@ function PearlStage({ stage, size = 48, animate = true }) {
       ctx.fill();
       ctx.restore();
       if (st.cracks > 0) {
-        ctx.strokeStyle = "rgba(20,26,32,.55)";
-        ctx.lineWidth = Math.max(1, size / 48);
+        ctx.strokeStyle = "rgba(90,110,128,.35)";
+        ctx.lineWidth = Math.max(0.8, size / 72);
+        ctx.lineCap = "round";
         const seeds = [[0.4, 0.15], [1.2, 0.5], [2.1, 0.8], [2.9, 0.2], [3.7, 0.65]];
         for (let i = 0; i < st.cracks; i++) {
           const a = seeds[i % 5][0];
@@ -979,6 +985,20 @@ function PearlStage({ stage, size = 48, animate = true }) {
       ctx.beginPath();
       ctx.ellipse(cx - rad * 0.3, cy - rad * 0.35, rad * 0.22, rad * 0.13, -0.6, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = "#b8c8f0";
+      ctx.beginPath();
+      ctx.ellipse(cx + rad * 0.3, cy + rad * 0.28, rad * 0.34, rad * 0.18, 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#d8c8e8";
+      ctx.beginPath();
+      ctx.ellipse(cx - rad * 0.15, cy + rad * 0.42, rad * 0.26, rad * 0.12, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#c8e8dd";
+      ctx.beginPath();
+      ctx.ellipse(cx + rad * 0.05, cy - rad * 0.48, rad * 0.2, rad * 0.1, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
       for (let i = 0; i < st.lights; i++) {
         const a = (i / Math.max(1, st.lights)) * Math.PI * 2 + 0.7;
         const rr = rad * (0.35 + 0.35 * ((i * 37) % 10) / 10);
@@ -1812,6 +1832,226 @@ const d2font = {
 };
 let particleId = 0;
 
+/* ============================================================
+   RPG VRSTVA — C1 TECHNICKÝ ZÁKLAD (EXPERIMENTÁLNÍ)
+   Vše zde označeno EXPERIMENTAL — hodnoty nejsou finální.
+   Balance konstanty na JEDNOM místě (BALANCE objekt).
+   ============================================================ */
+const BALANCE = {
+  combat: {
+    dmgBase: 1.6,
+    spellBase: 2.0,
+    dmgVarLo: 0.85,
+    dmgVarHi: 1.15,
+    minDamage: 3,
+    critBase: 0.12,
+    critMark: 0.30,
+    critCap: 0.85,
+    critMul: 1.6,
+    defReduction: 0.30,
+    defSoftCap: 14,
+    defSoftOver: 0.2,
+    weakenMul: 0.65,
+    enrageStart: 14,
+    enrageBonus: 0.15
+  },
+  classes: {
+    strazce: { hpMul: 1.25, baseSila: 12, baseObrana: 8, baseSvetlo: 6, silaPerLvl: 2, obrPerLvl: 1.5, svetloPerLvl: 1 },
+    posel:   { hpMul: 1.0,  baseSila: 10, baseObrana: 5, baseSvetlo: 8, silaPerLvl: 2, obrPerLvl: 1,   svetloPerLvl: 1.5 },
+    ucednik: { hpMul: 0.9,  baseSila: 6,  baseObrana: 4, baseSvetlo: 12, silaPerLvl: 1, obrPerLvl: 1,  svetloPerLvl: 2.5 }
+  },
+  zare: { start: 50, max: 100, paprsekGain: 12, ocisteniCost: 25, slovoCost: 40 },
+  tiers: { light: 0.62, standard: 1.0, hard: 1.28, boss: 1.15 },
+  enemies: {
+    lenost: { hpB: 118, hpL: 21, dmgB: 9.0, dmgL: 0.80, tempo: 1.5, charge: 1.7, chargeEvery: 4.5 },
+    strach: { hpB: 88,  hpL: 16, dmgB: 7.2, dmgL: 0.66, tempo: 0.8, charge: 1.3, chargeEvery: 5.0, multi: 2 },
+    pycha:  { hpB: 98,  hpL: 18, dmgB: 8.2, dmgL: 0.75, tempo: 1.1, charge: 1.5, chargeEvery: 4.8, debuffChance: 0.22 },
+    had:    { hpB: 130, hpL: 22, dmgB: 6.8, dmgL: 0.62, tempo: 1.2, charge: 1.7, chargeEvery: 4.0, boss: true }
+  },
+  loot: {
+    dropChance: { none: 0.40, common: 0.45, rare: 0.13, exceptional: 0.02 },
+    bossGuaranteed: "rare",
+    bossUpgradeToExceptional: 0.15
+  },
+  xp: {
+    firstActOfDay: 30,
+    extraAreaBonus: 10,
+    dailyActCap: 60,
+    closeDay: 40,
+    trialWin: [60, 100],
+    bossWin: [150, 200]
+  }
+};
+
+/* ===== RPG data — classy (uživatelské názvy vždy s diakritikou) ===== */
+const RPG_CLASSES = [
+  { id: "strazce", name: "Strážce", role: "Obrana, blok, protiútok", desc: "Vydrží víc, odměňuje správné blokování." },
+  { id: "posel", name: "Posel", role: "Rychlost, kritické zásahy, vyhýbání", desc: "Jedná dřív, trefí kriticky." },
+  { id: "ucednik", name: "Učedník", role: "Záře, očištění, silné schopnosti", desc: "Sbírá Záři a mrská světlem." }
+];
+
+/* ===== Schopnosti — data (jedna řada na schopnost; efekty řeší čisté funkce níže) ===== */
+const RPG_ABILITIES = {
+  strazce: [
+    { id: "uder", name: "Úder mečem", type: "basic", cost: null, cooldown: 0 },
+    { id: "postoj", name: "Pevný postoj", type: "defensive", cost: null, cooldown: 3 },
+    { id: "odrazeni", name: "Odražení temnoty", type: "signature", cost: null, cooldown: 4 }
+  ],
+  posel: [
+    { id: "zasah", name: "Přesný zásah", type: "basic", cost: null, cooldown: 0, critBonus: 0.25 },
+    { id: "krok", name: "Rychlý krok", type: "defensive", cost: null, cooldown: 3 },
+    { id: "misto", name: "Odhalené místo", type: "signature", cost: null, cooldown: 4 }
+  ],
+  ucednik: [
+    { id: "paprsek", name: "Paprsek", type: "basic", cost: 0, cooldown: 0 },
+    { id: "ocisteni", name: "Očištění", type: "support", cost: 25, cooldown: 3 },
+    { id: "slovo", name: "Slovo světla", type: "signature", cost: 40, cooldown: 3 }
+  ]
+};
+
+/* ===== Předměty (12) — slot, classa, efekt ===== */
+const RPG_ITEMS = [
+  { id: "mec-stit", name: "Meč a štít strážce", quality: "common", slot: "zbran", allowedClass: "strazce", bonus: { sila: 2 } },
+  { id: "luk", name: "Krátký luk", quality: "common", slot: "zbran", allowedClass: "posel", bonus: { sila: 2 } },
+  { id: "kniha", name: "Kniha světla", quality: "common", slot: "zbran", allowedClass: "ucednik", bonus: { svetlo: 2 } },
+  { id: "tezzbroj", name: "Těžká zbroj", quality: "common", slot: "zbroj", allowedClass: "strazce", bonus: { obrana: 4 } },
+  { id: "lehzbroj", name: "Lehká zbroj", quality: "common", slot: "zbroj", allowedClass: "posel", bonus: { obrana: 2 } },
+  { id: "plast", name: "Plášť učedníka", quality: "common", slot: "zbroj", allowedClass: "ucednik", bonus: { obrana: 2 } },
+  { id: "amulet", name: "Amulet rosy", quality: "rare", slot: "dopln", allowedClass: "ucednik", bonus: { svetlo: 2 }, effect: "ocisteniPlus" },
+  { id: "prsten", name: "Prsten stínu", quality: "rare", slot: "dopln", allowedClass: "posel", bonus: { sila: 1 }, effect: "critCdAll" },
+  { id: "zvon", name: "Zvonový štít", quality: "rare", slot: "zbran", allowedClass: "strazce", bonus: { sila: 1, obrana: 2 }, effect: "blockBoost" },
+  { id: "runovymec", name: "Runový meč", quality: "exceptional", slot: "zbran", allowedClass: "any", bonus: { sila: 5 }, effect: "critPlus" },
+  { id: "svatozar", name: "Svatozář", quality: "exceptional", slot: "dopln", allowedClass: "ucednik", bonus: { svetlo: 5 }, effect: "slovoLonger" },
+  { id: "perla", name: "Vzácná perla", quality: "exceptional", slot: "dopln", allowedClass: "posel", bonus: { svetlo: 4 }, effect: "mistoLonger" }
+];
+const RPG_SLOTS = ["zbran", "zbroj", "dopln"];
+
+/* ===== Čisté bojové funkce (centralní model — jediné místo se vzorci) ===== */
+function rpgHeroStats(clsId, level, gear) {
+  const C = BALANCE.classes[clsId] || BALANCE.classes.strazce;
+  gear = gear || {};
+  return {
+    sila: Math.round(C.baseSila + (level - 1) * C.silaPerLvl + (gear.sila || 0)),
+    obrana: Math.round(C.baseObrana + (level - 1) * C.obrPerLvl + (gear.obrana || 0)),
+    svetlo: Math.round(C.baseSvetlo + (level - 1) * C.svetloPerLvl + (gear.svetlo || 0)),
+    maxHp: Math.round((60 + (level - 1) * 8) * C.hpMul)
+  };
+}
+function rpgEnemyStats(enemyId, level, tier) {
+  const E = BALANCE.enemies[enemyId];
+  if (!E) return null;
+  const T = BALANCE.tiers[tier] || 1;
+  return {
+    id: enemyId,
+    hp: Math.round((E.hpB + E.hpL * (level - 1)) * T),
+    dmg: (E.dmgB + E.dmgL * (level - 1)) * T,
+    tempo: E.tempo, charge: E.charge, chargeEvery: E.chargeEvery,
+    multi: E.multi || 1, debuffChance: E.debuffChance || 0, boss: !!E.boss
+  };
+}
+function rpgPhysDamage(sila, rng) {
+  const c = BALANCE.combat;
+  return Math.max(2, Math.round(sila * c.dmgBase * (c.dmgVarLo + rng() * (c.dmgVarHi - c.dmgVarLo))));
+}
+function rpgSpellDamage(svetlo, mult, rng) {
+  const c = BALANCE.combat;
+  return Math.max(3, Math.round(svetlo * mult * (0.9 + rng() * 0.2)));
+}
+function rpgReduceByDefense(dmg, obrana) {
+  const c = BALANCE.combat;
+  const eff = Math.min(obrana, c.defSoftCap);
+  const soft = Math.max(0, obrana - c.defSoftCap);
+  return Math.max(c.minDamage, Math.round(dmg - (eff * c.defReduction + soft * c.defSoftOver)));
+}
+function rpgCritChance(base, mark, gearBonus) {
+  const c = BALANCE.combat;
+  return Math.min(c.critCap, c.critBase + (base || 0) + (mark ? c.critMark : 0) + (gearBonus || 0));
+}
+function rpgLootPool(clsId) {
+  return RPG_ITEMS.filter(it => !it.allowedClass || it.allowedClass === "any" || it.allowedClass === clsId);
+}
+function rpgCanEquip(item, clsId) {
+  if (!item) return false;
+  if (item.allowedClass !== "any" && item.allowedClass !== clsId) return false;
+  return RPG_SLOTS.indexOf(item.slot) >= 0;
+}
+
+/* ===== Anti-farm datová struktura (čisté funkce, bez UI) ===== */
+function rpgMarkTrialRewarded(saveCopy, isoWeek, dateKey) {
+  const s = JSON.parse(JSON.stringify(saveCopy));
+  if (!s.weeks) s.weeks = {};
+  if (!s.weeks[isoWeek]) s.weeks[isoWeek] = { days: {}, chest: false };
+  if (!s.weeks[isoWeek].trialReward) s.weeks[isoWeek].trialReward = {};
+  s.weeks[isoWeek].trialReward[dateKey] = true;
+  return s;
+}
+function rpgIsTrialRewarded(saveObj, isoWeek, dateKey) {
+  return !!(saveObj && saveObj.weeks && saveObj.weeks[isoWeek] && saveObj.weeks[isoWeek].trialReward && saveObj.weeks[isoWeek].trialReward[dateKey]);
+}
+function rpgMarkBossRewarded(saveCopy, isoWeek) {
+  const s = JSON.parse(JSON.stringify(saveCopy));
+  if (!s.weeks) s.weeks = {};
+  if (!s.weeks[isoWeek]) s.weeks[isoWeek] = { days: {}, chest: false };
+  s.weeks[isoWeek].bossReward = true;
+  return s;
+}
+function rpgIsBossRewarded(saveObj, isoWeek) {
+  return !!(saveObj && saveObj.weeks && saveObj.weeks[isoWeek] && saveObj.weeks[isoWeek].bossReward);
+}
+/* Denni XP — vypocet az pri uzavreni dne (no-op pri opakovani) */
+function rpgComputeDayXp(areasActiveCount) {
+  const x = BALANCE.xp;
+  if (areasActiveCount <= 0) return 0;
+  const acts = Math.min(x.dailyActCap, x.firstActOfDay + Math.max(0, areasActiveCount - 1) * x.extraAreaBonus);
+  return acts + x.closeDay;
+}
+function rpgCloseDayAward(saveCopy, isoWeek, dayIdx, areasActiveCount) {
+  const s = JSON.parse(JSON.stringify(saveCopy));
+  if (!s.weeks) s.weeks = {};
+  if (!s.weeks[isoWeek]) s.weeks[isoWeek] = { days: {}, chest: false };
+  const w = s.weeks[isoWeek];
+  if (!w.days) w.days = {};
+  const d = w.days[dayIdx] || { acts: {}, closed: false };
+  if (d.xpAwarded) return { save: saveCopy, awarded: false, xp: 0 }; // no-op — jiz odmeneno
+  const xp = rpgComputeDayXp(areasActiveCount);
+  d.awardedXp = xp;
+  d.xpAwarded = true;
+  w.days[dayIdx] = d;
+  s.xp = (s.xp || 0) + xp;
+  return { save: s, awarded: true, xp };
+}
+
+/* ===== Migrace v4 → v5 (ČISTÁ FUNKCE — vrací nový objekt, nemění vstup) =====
+   NEAKTIVOVÁNO v produkci — spustí se až v C2 s obrazovkou výběru classy.
+   clsId je VŽDY předáno explicitně (nikdy automaticky). */
+function rpgMigrateV4toV5(saveV4, chosenClsId, equipMapping) {
+  const s = JSON.parse(JSON.stringify(saveV4));
+  if (s && s.v === 5) return s; // idempotentní — v5 už je migrovaný
+  if (!s) return { v: 5, hero: null, xp: 0, inv: [], equip: {}, streak: { count: 0, last: null }, totalDays: 0, journal: {}, weeks: {} };
+  const out = { ...s, v: 5 };
+  if (out.hero && chosenClsId) {
+    out.hero.cls = chosenClsId;
+    out.hero.clsChosen = true;
+    // přemapování vybavy: weapon→zbran, armor→zbroj; ostatní zůstavají v inv
+    const eq = { ...(out.equip || {}) };
+    const newEq = {};
+    const map = equipMapping || { weapon: "zbran", armor: "zbroj" };
+    Object.keys(eq).forEach(oldSlot => {
+      const uid = eq[oldSlot];
+      const it = (out.inv || []).find(x => x.uid === uid);
+      const newSlot = map[oldSlot];
+      if (it && newSlot) {
+        it.slot = newSlot;
+        newEq[newSlot] = uid;
+      }
+      // helm/boots/amulet/trinket bez mapování → zůstávají v inv (nenasazeny)
+    });
+    out.equip = newEq;
+  }
+  if (!out.journal) out.journal = {};
+  return out;
+}
+
 const JOURNAL_QUESTIONS = [
   { key: "grateful", label: "Za co jsem dnes vděčný?" },
   { key: "battle", label: "S čím jsem dnes bojoval?" },
@@ -2109,11 +2349,13 @@ function UxPearl({ stage, size, reduced }) {
   return React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center" } },
     React.createElement(PearlStage, { stage: stage, size: size, animate: !reduced }));
 }
-function HomeScreen({ heroName, level, todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay }) {
+function HomeScreen({ todayIdx, pearlStage, areasDone, totalActsDone, areasActive, dayClosed, journalStatus, reduced, onOpenArea, onFinishDay, onOpenMenu }) {
   return React.createElement("div", { className: "ux-root" },
     React.createElement("div", { className: "ux-header" },
       React.createElement("span", { className: "ux-day" }, DAY_NAMES[todayIdx]),
-      React.createElement("span", { style: { fontSize: 12, color: "var(--ux-mut)" }, "aria-hidden": true }, heroName, " · Lv ", level)),
+      React.createElement("button", { className: "ux-menu-btn", onClick: onOpenMenu, "aria-label": "Otevřít hlavní menu" },
+        React.createElement("svg", { viewBox: "0 0 24 24", width: 24, height: 24, fill: "none", stroke: "var(--ux-text)", strokeWidth: 2, strokeLinecap: "round", "aria-hidden": true },
+          React.createElement("path", { d: "M4 7h16M4 12h16M4 17h16" })))),
     React.createElement("div", { className: "ux-dots", "aria-label": "Postup týdnem: " + pearlStage, role: "img" },
       [0, 1, 2, 3, 4, 5, 6].map(i => React.createElement("span", { key: i, className: "ux-dot " + (i === todayIdx ? "today" : i < todayIdx ? "closed" : "") }))),
     React.createElement("div", { className: "ux-pearl-zone" },
@@ -2565,18 +2807,15 @@ function App() {
     React.createElement("style", null, UX_CSS),
     uxScreen === "menu" ? renderMenu() : null,
     !uxScreen || uxScreen === "menu" ? React.createElement(HomeScreen, {
-      heroName: hero.name, level: level, todayIdx: todayIdx, pearlStage: pearlStage,
+      todayIdx: todayIdx, pearlStage: pearlStage,
       areasDone: areasDone, totalActsDone: totalActsDone, areasActive: areasActive,
       dayClosed: dayClosed, journalStatus: journalStatus, reduced: uxReduced,
       onOpenArea: id => setUxScreen({ areaId: id }),
+      onOpenMenu: () => setUxScreen("menu"),
       onFinishDay: requestCloseDay
     }) : null,
     !uxScreen || uxScreen === "menu" ? null : renderUxShell(),
-    (!uxScreen || uxScreen === "menu") ? React.createElement("button", {
-      className: "ux-menu-btn", style: { position: "fixed", top: "max(10px, env(safe-area-inset-top))", right: 12, zIndex: 30 },
-      onClick: () => setUxScreen("menu"), "aria-label": "Otevřít hlavní menu"
-    }, React.createElement("svg", { viewBox: "0 0 24 24", width: 22, height: 22, fill: "none", stroke: "var(--ux-text)", strokeWidth: 2, strokeLinecap: "round", "aria-hidden": true },
-      React.createElement("path", { d: "M4 7h16M4 12h16M4 17h16" }))) : null,
+    
     summaryModal,
     chestOpen && React.createElement(ChestModal, { key: "chest", step: chestStep,
       onConfirm: () => { sfxChest(); setChestStep("open"); setSave(s2 => { const w = s2.weeks[wk] || { days: {}, chest: false }; const nx = s2.xp + 300; if (levelFor(nx) > levelFor(s2.xp)) { const nl = levelFor(nx); window.setTimeout(() => setLevelUp(nl), 300); window.setTimeout(() => setLevelUp(null), 2800); sfxLevel(); } return { ...s2, xp: nx, inv: [...s2.inv, crownItem()], weeks: { ...s2.weeks, [wk]: { ...w, chest: true } } }; }); spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50); },
@@ -3069,6 +3308,7 @@ function ChestModal({
     }
   }, "Na dal\u0161\xED t\xFDden! \u2694"))));
 }
+
 
 
 </script>
