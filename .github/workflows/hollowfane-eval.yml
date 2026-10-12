@@ -21,8 +21,6 @@ jobs:
         with:
           ref: hollowfane-eval
           path: evalrepo
-          sparse-checkout: |
-            .github/workflows-eval/
 
       - name: Checkout HOLLOWFANE na přesném commitu
         uses: actions/checkout@v4
