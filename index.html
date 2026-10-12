@@ -618,7 +618,7 @@ const RARITIES = [{
   max: 24,
   affixes: 2
 }];
-const SAVE_KEY = "perla-promeny-v3";
+const SAVE_KEY = "perla-promeny-v4";
 function defaultSave() {
   return {
     hero: null,
@@ -644,7 +644,7 @@ function loadSave() {
   return defaultSave();
 }
 function migrateSave(s) {
-  const out = { ...s, v: 3 };
+  const out = { ...s, v: 4 };
   if (out.weeks) {
     Object.keys(out.weeks).forEach(wk => {
       const w = out.weeks[wk];
@@ -671,6 +671,15 @@ function migrateSave(s) {
     });
   }
   if (!out.journal) out.journal = {};
+  Object.keys(out.journal || {}).forEach(k => {
+    const j = out.journal[k];
+    if (!j || typeof j !== "object") { delete out.journal[k]; return; }
+    if (typeof j.grateful !== "string") j.grateful = "";
+    if (typeof j.battle !== "string") j.battle = "";
+    if (typeof j.change !== "string") j.change = "";
+    if (j.status !== "draft" && j.status !== "done") j.status = (j.grateful || j.battle || j.change) ? "draft" : undefined;
+    if (!j.updatedAt) j.updatedAt = Date.now();
+  });
   return out;
 }
 function dayIndex(d) {
@@ -901,6 +910,103 @@ function pearlPalette(shineT) {
 /* duch (nepřítel) — s vnitřním stínováním */
 const GHOST_ROWS = ["....XXXXXXXX....", "...XDDXXXXDDX...", "..XDDXXXXXXDDX..", ".XDXXXXXXXXXXDX.", ".XXWWWXXXXWWWXX.", ".XXWKWXXXXWKWXX.", ".XXXXXXXXXXXXXX.", ".XDXXXXXXXXXXDX.", ".XXXXKKKKKKXXXX.", ".XDXXXXXXXXXXDX.", ".XXXXXXXXXXXXXX.", ".XXDXXDXXDXXDXX.", ".X.X..X..X..X.X.", "................"];
 const BOSS_ROWS = ["..H...XXXX...H..", ".HH..XDDXXD..HH.", ".XHXXXXXXXXXXHX.", ".XHXXXXXXXXXXHX.", ".XXWWWXXXXWWWXX.", ".XXWKWXXXXWKWXX.", ".XXXXXXXXXXXXXX.", ".XDXXXXXXXXXXDX.", ".XXXXKKKKKKXXXX.", ".XDXXXXXXXXXXDX.", ".XXXXXXXXXXXXXX.", ".XXDXXDXXDXXDXX.", ".X.X..X..X..X.X.", "................"];
+const PEARL_STAGES = [1, 2, 3, 4, 5, 6, 7].map(n => ({
+  n,
+  label: "ChangeON" + n,
+  cracks: n <= 2 ? 5 : n === 3 ? 3 : n === 4 ? 2 : n === 5 ? 1 : 0,
+  lights: n,
+  rim: n <= 2 ? "#3d4b57" : n === 3 ? "#6e8296" : n === 4 ? "#9fb6cc" : n === 5 ? "#cfe3f2" : n === 6 ? "#eaf5fc" : "#ffffff",
+  body: n <= 2 ? "#52616e" : n === 3 ? "#75899b" : n === 4 ? "#9db4c8" : n === 5 ? "#c8dbea" : n === 6 ? "#e2f0f8" : "#f4fbff",
+  glow: n <= 1 ? 0 : n === 2 ? 3 : n === 3 ? 6 : n === 4 ? 10 : n === 5 ? 15 : n === 6 ? 22 : 32,
+  sparkles: n >= 5 ? n - 4 : 0
+}));
+function PearlStage({ stage, size = 48, animate = true }) {
+  const ref = useRef(null);
+  const stageRef = useRef(stage);
+  useEffect(() => { stageRef.current = stage; }, [stage]);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv) return;
+    const ctx = cv.getContext("2d");
+    if (!ctx) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = size * dpr;
+    cv.height = size * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const st = PEARL_STAGES[Math.max(0, Math.min(6, stage - 1))];
+    const cx = size / 2, cy = size / 2, rad = size * 0.34;
+    let raf = 0;
+    const draw = t => {
+      ctx.clearRect(0, 0, size, size);
+      const pulse = animate ? 0.85 + 0.15 * Math.sin(t / 600) : 1;
+      if (st.glow > 0) {
+        const g = ctx.createRadialGradient(cx, cy, rad * 0.4, cx, cy, rad + st.glow);
+        g.addColorStop(0, "rgba(190,225,250," + (0.25 * st.glow / 32 * pulse) + ")");
+        g.addColorStop(0.6, "rgba(255,247,216," + (0.18 * st.glow / 32 * pulse) + ")");
+        g.addColorStop(1, "rgba(255,247,216,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad + st.glow, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+      const bg = ctx.createRadialGradient(cx - rad * 0.35, cy - rad * 0.4, rad * 0.1, cx, cy, rad);
+      bg.addColorStop(0, "#ffffff");
+      bg.addColorStop(0.45, st.body);
+      bg.addColorStop(1, st.rim);
+      ctx.fillStyle = bg;
+      ctx.shadowColor = "rgba(255,247,216," + (st.glow / 40) + ")";
+      ctx.shadowBlur = st.glow * 0.5 * pulse;
+      ctx.fill();
+      ctx.restore();
+      if (st.cracks > 0) {
+        ctx.strokeStyle = "rgba(20,26,32,.55)";
+        ctx.lineWidth = Math.max(1, size / 48);
+        const seeds = [[0.4, 0.15], [1.2, 0.5], [2.1, 0.8], [2.9, 0.2], [3.7, 0.65]];
+        for (let i = 0; i < st.cracks; i++) {
+          const a = seeds[i % 5][0];
+          const len = rad * (0.45 + seeds[i % 5][1] * 0.3);
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * rad * 0.92, cy + Math.sin(a) * rad * 0.92);
+          ctx.lineTo(cx + Math.cos(a + 0.35) * (rad - len), cy + Math.sin(a + 0.35) * (rad - len));
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      ctx.beginPath();
+      ctx.ellipse(cx - rad * 0.3, cy - rad * 0.35, rad * 0.22, rad * 0.13, -0.6, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < st.lights; i++) {
+        const a = (i / Math.max(1, st.lights)) * Math.PI * 2 + 0.7;
+        const rr = rad * (0.35 + 0.35 * ((i * 37) % 10) / 10);
+        const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+        const al = animate ? 0.35 + 0.3 * Math.sin(t / 350 + i * 1.3) : 0.5;
+        ctx.fillStyle = "rgba(255,250,230," + al + ")";
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(1, size * 0.028), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < st.sparkles; i++) {
+        const a = t / 900 + i * Math.PI * 2 / Math.max(1, st.sparkles);
+        const sr = rad + 6 + (i % 2) * 5;
+        const px = cx + Math.cos(a) * sr, py = cy + Math.sin(a) * sr;
+        ctx.fillStyle = "rgba(255,240,190,.9)";
+        ctx.fillRect(px - 1, py - 1, 2, 2);
+      }
+      ctx.strokeStyle = st.n >= 6 ? "rgba(255,215,120,.9)" : "rgba(255,255,255,.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad + 1, 0, Math.PI * 2);
+      ctx.stroke();
+      if (animate) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [stage, size, animate]);
+  return React.createElement("canvas", { ref: ref, style: { width: size, height: size, imageRendering: "auto", flexShrink: 0 } });
+}
 function ghostPalette(color, boss) {
   return {
     X: color,
@@ -1586,6 +1692,154 @@ const d2font = {
 };
 let particleId = 0;
 
+const JOURNAL_QUESTIONS = [
+  { key: "grateful", label: "Za co jsem dnes vděčný?" },
+  { key: "battle", label: "S čím jsem dnes bojoval?" },
+  { key: "change", label: "Co mi dnes Bůh ukázal, abych změnil?" }
+];
+function JournalModal({ dateK, entry, dayClosed, onClose, onSave, onComplete }) {
+  const [texts, setTexts] = useState(() => {
+    const t = { grateful: "", battle: "", change: "" };
+    JOURNAL_QUESTIONS.forEach(q => { t[q.key] = entry && typeof entry[q.key] === "string" ? entry[q.key] : ""; });
+    return t;
+  });
+  const [saveState, setSaveState] = useState("idle");
+  const [confirmPartial, setConfirmPartial] = useState(false);
+  const [reduced, setReduced] = useState(false);
+  const timerRef = useRef(null);
+  const textsRef = useRef(texts);
+  useEffect(() => { textsRef.current = texts; }, [texts]);
+  useEffect(() => {
+    if (window.matchMedia) {
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReduced(mq.matches);
+      const h = e => setReduced(e.matches);
+      if (mq.addEventListener) mq.addEventListener("change", h);
+      return () => { if (mq.removeEventListener) mq.removeEventListener("change", h); };
+    }
+  }, []);
+  const completedRef = useRef(false);
+  const persist = React.useCallback(() => {
+    if (completedRef.current) return;
+    const t = textsRef.current;
+    if (entry && entry.status === "done" || dayClosed) return;
+    setSaveState("saving");
+    onSave(t, false);
+    window.setTimeout(() => setSaveState("saved"), 350);
+    window.setTimeout(() => setSaveState(s => s === "saved" ? "idle" : s), 1800);
+  }, [entry, dayClosed, onSave]);
+  useEffect(() => {
+    const onHide = () => persist();
+    window.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+      persist();
+    };
+  }, [persist]);
+  const onChange = (key, val) => {
+    setTexts(t => ({ ...t, [key]: val }));
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(persist, 700);
+  };
+  const filled = JOURNAL_QUESTIONS.filter(q => texts[q.key].trim()).length;
+  const readOnly = (entry && entry.status === "done") || dayClosed;
+  const modalRef = useRef(null);
+  const readDomTexts = () => {
+    const out = { ...textsRef.current };
+    if (modalRef.current) {
+      const tas = modalRef.current.querySelectorAll('textarea');
+      JOURNAL_QUESTIONS.forEach((q, i) => { if (tas[i]) out[q.key] = tas[i].value; });
+    }
+    return out;
+  };
+  const tryComplete = () => {
+    const cur = readDomTexts();
+    const curFilled = JOURNAL_QUESTIONS.filter(q => cur[q.key] && cur[q.key].trim()).length;
+    if (curFilled < 3) { setConfirmPartial(true); return; }
+    setDomComplete(cur);
+  };
+  const domCompleteRef = useRef(null);
+  const setDomComplete = (t) => { domCompleteRef.current = t; doComplete(); };  
+  const doComplete = () => {
+    completedRef.current = true;
+    setConfirmPartial(false);
+    const t = domCompleteRef.current || textsRef.current;
+    onSave(t, true);
+    domCompleteRef.current = null;
+    onComplete();
+  };
+  return React.createElement("div", { ref: modalRef, className: "fixed inset-0 z-50 flex items-end sm:items-center justify-center", style: { backgroundColor: "rgba(5,3,2,.9)" }, onClick: () => { persist(); onClose(); } },
+    React.createElement("div", { className: "panelD2 flex w-full max-w-2xl flex-col overflow-hidden", style: { maxHeight: "92dvh", animation: reduced ? "none" : "popIn .22s ease-out" }, onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "flex items-center justify-between border-b-2 px-4 py-2", style: { borderColor: "#2a2018" } },
+        React.createElement("div", { className: "text-sm font-bold", style: { ...d2font, color: "#ffe9a8" } }, "📖 Deník proměny"),
+        React.createElement("div", { className: "flex items-center gap-2" },
+          saveState !== "idle" && React.createElement("span", { className: "text-[9px]", style: { color: saveState === "saving" ? "#8a7a5c" : "#7dd87d" } }, saveState === "saving" ? "Ukládám…" : "Uloženo"),
+          React.createElement("button", { onClick: e => { e.stopPropagation(); persist(); onClose(); }, className: "btnD2 px-2 py-0.5 text-xs", style: { color: "#8a7a5c" } }, "✕"))),
+      React.createElement("div", { className: "flex-1 overflow-y-auto px-4 py-3", style: { maxHeight: "calc(92dvh - 130px)" } },
+        React.createElement("div", { className: "mb-3 rounded p-2 text-[10px]", style: { background: "rgba(126,200,255,.06)", color: "#8ab4f8" } }, "Zápis se ukládá pouze v tomto zařízení. Vymazání dat prohlížeče může zápisy odstranit."),
+        readOnly && React.createElement("div", { className: "mb-2 rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, entry && entry.status === "done" ? "Zápis je dokončený" : "", dayClosed ? (entry && entry.status === "done" ? " · " : "") + "Den je uzavřen — zápis je jen ke čtení" : ""),
+        JOURNAL_QUESTIONS.map(q => React.createElement("div", { key: q.key, className: "mb-3" },
+          React.createElement("label", { className: "mb-1 block text-[11px] font-bold", style: { color: "#d8c9a3" } }, q.label),
+          React.createElement("textarea", {
+            value: texts[q.key],
+            onChange: e => onChange(q.key, e.target.value),
+            onBlur: persist,
+            readOnly: readOnly,
+            rows: 3,
+            spellCheck: true,
+            lang: "cs",
+            className: "w-full rounded border-2 px-2 py-1.5 text-[12px]",
+            style: { borderColor: "#2a2018", background: "rgba(0,0,0,.3)", color: "#f5efe0", minHeight: 64, resize: "vertical", fontFamily: "inherit", lineHeight: 1.45 }
+          }))),
+        React.createElement("div", { className: "mb-1 text-[10px]", style: { color: "#6b5f49" } }, "Vyplněno: ", filled, "/3", readOnly ? " · jen ke čtení" : "")),
+      React.createElement("div", { className: "border-t-2 px-4 py-3", style: { borderColor: "#2a2018", paddingBottom: "max(12px, env(safe-area-inset-bottom))" } },
+        !readOnly && React.createElement("div", { className: "flex flex-col gap-2 sm:flex-row" },
+          React.createElement("button", { onClick: e => { e.stopPropagation(); persist(); onClose(); }, className: "btnD2 flex-1 py-2 text-xs" }, "Zavřít a uložit"),
+          React.createElement("button", { onClick: e => { e.stopPropagation(); tryComplete(); }, className: "btnD2 daybtn flex-1 py-2 text-xs font-bold", style: { color: "#ffd700" } }, "Dokončit dnešní zápis")),
+        readOnly && React.createElement("button", { onClick: e => { e.stopPropagation(); onClose(); }, className: "btnD2 w-full py-2 text-xs" }, "Zavřít"),
+        confirmPartial && React.createElement("div", { className: "mt-3 rounded border-2 p-3 text-center", style: { borderColor: "#5c4a24", background: "rgba(0,0,0,.4)" } },
+          React.createElement("div", { className: "mb-2 text-[11px]", style: { color: "#ffe9a8" } }, "Některé části zatím nejsou vyplněné. Chceš zápis ještě doplnit, nebo jej dokončit takto?"),
+          React.createElement("div", { className: "flex gap-2" },
+            React.createElement("button", { onClick: e => { e.stopPropagation(); setConfirmPartial(false); }, className: "btnD2 flex-1 py-1.5 text-xs" }, "Vrátit se k zápisu"),
+            React.createElement("button", { onClick: e => { e.stopPropagation(); doComplete(); }, className: "btnD2 flex-1 py-1.5 text-xs", style: { color: "#ffd700" } }, "Dokončit takto"))))));
+}
+
+const ONBOARDING_STEPS = [
+  { id: "day", text: "Tady vidíš dnešní den a postup týdnem." },
+  { id: "panel", text: "Během jednoho dne můžeš splnit více činností." },
+  { id: "area", text: "Vyber si jednu oblast, které se dnes věnuješ." },
+  { id: "nav", text: "Šipka tě navede k vybrané oblasti." },
+  { id: "journal", text: "Deník proměny ti pomůže s reflexí dne." },
+  { id: "done", text: "Až budeš chtít, můžeš dnešní den dokončit." }
+];
+function Onboarding({ step, onNext, onSkip }) {
+  const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  useEffect(() => {
+    const el = document.querySelector("[data-ob='" + (ONBOARDING_STEPS[step] ? ONBOARDING_STEPS[step].id : "") + "']");
+    if (!el) { setPos(null); return; }
+    const r = el.getBoundingClientRect();
+    setPos({ top: r.top, left: r.left, width: r.width, height: r.height });
+  }, [step]);
+  const s = ONBOARDING_STEPS[step];
+  if (!s) return null;
+  const bubbleTop = pos ? Math.max(12, Math.min(window.innerHeight - 140, pos.top + pos.height + 10)) : window.innerHeight / 2;
+  const bubbleLeft = pos ? Math.max(12, Math.min(window.innerWidth - 280, pos.left)) : window.innerWidth / 2 - 130;
+  return React.createElement("div", { className: "fixed inset-0 z-[60]", style: { backgroundColor: "rgba(5,3,2,.55)" }, onClick: onNext },
+    pos && React.createElement("div", { style: { position: "fixed", top: pos.top - 4, left: pos.left - 4, width: pos.width + 8, height: pos.height + 8, border: "3px solid #ffd700", borderRadius: 8, boxShadow: "0 0 18px rgba(255,215,0,.55)", pointerEvents: "none" } }),
+    React.createElement("div", { className: "panelD2 fixed w-[260px] p-3", style: { top: bubbleTop, left: bubbleLeft }, onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "mb-1 flex items-center justify-between" },
+        React.createElement("span", { className: "text-[9px]", style: { color: "#8a7a5c" } }, "Průvodce ", step + 1, "/", ONBOARDING_STEPS.length)),
+      React.createElement("div", { className: "mb-2 text-[12px]", style: { color: "#f5efe0", lineHeight: 1.4 } }, s.text),
+      React.createElement("div", { className: "flex gap-2" },
+        step < ONBOARDING_STEPS.length - 1
+          ? React.createElement("button", { onClick: onNext, className: "btnD2 flex-1 py-1.5 text-[11px]", style: { color: "#ffd700" } }, "Pokračovat")
+          : React.createElement("button", { onClick: onSkip, className: "btnD2 flex-1 py-1.5 text-[11px]", style: { color: "#ffd700" } }, "Hotovo"),
+        step < ONBOARDING_STEPS.length - 1 && React.createElement("button", { onClick: onSkip, className: "btnD2 px-2 py-1.5 text-[11px]", style: { color: "#8a7a5c" } }, "Přeskočit"))));
+}
+
 function App() {
   const [save, setSave] = useState(loadSave);
   const [testMode, setTestMode] = useState(false);
@@ -1604,7 +1858,10 @@ function App() {
   const [activeArea, setActiveArea] = useState(null);
   const [closeSummary, setCloseSummary] = useState(false);
   const [invOpen, setInvOpen] = useState(false);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [obStep, setObStep] = useState(null);
   const canvasSizeRef = useRef(null);
+
   useEffect(() => {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
   }, [save]);
@@ -1645,9 +1902,44 @@ function App() {
   })), [todayRec]);
   const totalActsDone = areasDone.reduce((s, a) => s + a.done, 0);
   const totalActs = ACTIVITIES.length;
-  const pearlStage = Math.min(7, 1 + daysDone);
+  const daysClosedCount = Object.keys(weekRec.days).filter(di => weekRec.days[di] && weekRec.days[di].closed).length;
+  const pearlStage = Math.min(7, 1 + daysClosedCount);
   const shineT = Math.min(1, totalActsDone > 0 ? 0.15 + 0.85 * (daysDone / 7) : 0);
   const dayClosed = !!(todayRec && todayRec.closed);
+  const todayKey = dateKey(now);
+  const journalEntry = (save.journal && save.journal[todayKey]) || null;
+  const journalStatus = !journalEntry || (!journalEntry.grateful && !journalEntry.battle && !journalEntry.change) ? "empty" : journalEntry.status === "done" ? "done" : "draft";
+  useEffect(() => {
+    if (save.hero && save.onboardingDone !== true && obStep === null) {
+      const t = window.setTimeout(() => setObStep(0), 900);
+      return () => window.clearTimeout(t);
+    }
+  }, [save.hero, save.onboardingDone]);
+  function saveJournalTexts(texts, complete) {
+    setSave(sv => {
+      const j = { ...(sv.journal || {}) };
+      const prev = j[todayKey] || {};
+      j[todayKey] = { grateful: texts.grateful || "", battle: texts.battle || "", change: texts.change || "", updatedAt: Date.now(), status: complete ? "done" : "draft" };
+      return { ...sv, journal: j };
+    });
+  }
+  function completeJournalAct() {
+    setSave(sv => {
+      const w = sv.weeks[wk] || { days: {}, chest: false };
+      const day = w.days[todayIdx] || { acts: {}, closed: false };
+      if (day.acts && day.acts["pokani-denik"] && day.acts["pokani-denik"].done) return sv;
+      const acts = { ...(day.acts || {}), "pokani-denik": { done: true, at: Date.now() } };
+      return { ...sv, xp: sv.xp + 25, weeks: { ...sv.weeks, [wk]: { ...w, days: { ...w.days, [todayIdx]: { ...day, acts } } } } };
+    });
+    sfxComplete();
+    spawnParticles(window.innerWidth / 2, window.innerHeight / 3, ["#f5a524", "#ffd700", "#fff7d8"], 14);
+  }
+  function finishOnboarding() {
+    setObStep(null);
+    setSave(sv => ({ ...sv, onboardingDone: true }));
+    sfxClick();
+  }
+
   function showToast(msg) {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2800);
@@ -1715,6 +2007,7 @@ function App() {
   }
   function requestCloseDay() {
     if (totalActsDone === 0) { showToast("Nejdřív splň alespoň jednu činnost dnes. 🕊"); return; }
+    setJournalOpen(false);
     setCloseSummary(true);
     sfxClick();
   }
@@ -1776,7 +2069,7 @@ function App() {
     x: pos[0], y: pos[1], dayIdx: i,
     state: weekRec.days[i] && weekRec.days[i].closed ? "done" : i === todayIdx ? "today" : i < todayIdx ? "missed" : testMode ? "open" : "locked"
   }));
-  const topBar = /*#__PURE__*/React.createElement("div", { className: "panelD2 flex items-center justify-between gap-2 px-3 py-1.5", style: { flexWrap: "wrap" } },
+  const topBar = /*#__PURE__*/React.createElement("div", { "data-ob": "day", className: "panelD2 flex items-center justify-between gap-2 px-3 py-1.5", style: { flexWrap: "wrap" } },
     /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
       DAY_SHORT.map((d, i) => {
         const done = weekRec.days[i] && weekRec.days[i].closed;
@@ -1788,9 +2081,10 @@ function App() {
       })),
     /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-2" },
       /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
-        /*#__PURE__*/React.createElement(PixelSprite, { rows: PEARL_ROWS, palette: pearlPalette(shineT), scale: 1, style: { width: 18, height: 18 } }),
+        /*#__PURE__*/React.createElement(PearlStage, { stage: pearlStage, size: 30, animate: true }),
         /*#__PURE__*/React.createElement("span", { className: "text-[10px] font-bold", style: { color: "#ffd700" } }, "ChangeON", pearlStage)),
       /*#__PURE__*/React.createElement("button", { onClick: () => { setTestMode(t => !t); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: testMode ? "#ffd700" : "#8a7a5c" } }, testMode ? "🔓 Test" : "🔒"),
+      /*#__PURE__*/React.createElement("button", { onClick: () => { setObStep(0); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: "#7ec8ff" } }, "?"),
       /*#__PURE__*/React.createElement("button", { onClick: resetAll, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: resetArmed ? "#ff8877" : "#8a7a5c" } }, resetArmed ? "Opravdu?" : "☠")));
   const dayPathPanel = /*#__PURE__*/React.createElement("div", { className: "panelD2 flex flex-col gap-1.5 p-3" },
     /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between" },
@@ -1798,18 +2092,25 @@ function App() {
       /*#__PURE__*/React.createElement("span", { className: "text-[10px]", style: { color: "#8a7a5c" } }, totalActsDone, "/", totalActs, " činností")),
     areasDone.map(a => /*#__PURE__*/React.createElement("div", { key: a.id, className: "rounded border-2 p-1.5", style: { borderColor: navTarget && navTarget.areaId === a.id ? a.color : "#2a2018", background: activeArea === a.id ? "rgba(255,255,255,.03)" : "transparent" } },
       /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between gap-1" },
-        /*#__PURE__*/React.createElement("button", { onClick: () => { setActiveArea(activeArea === a.id ? null : a.id); sfxClick(); }, className: "flex-1 text-left" },
+        /*#__PURE__*/React.createElement("button", { onClick: () => { setActiveArea(activeArea === a.id ? null : a.id); sfxClick(); }, "data-ob": a.id === "ozn" ? "area" : undefined, className: "flex-1 text-left" },
           /*#__PURE__*/React.createElement("span", { className: "text-[11px] font-bold", style: { color: a.done > 0 ? a.color : "#d8c9a3" } }, a.glyph, " ", a.name, " ", a.done > 0 ? "· " + a.done + "/" + a.total : "")),
-        /*#__PURE__*/React.createElement("button", { onClick: () => navigateToArea(a.id), className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#7ec8ff" } }, "🧭 Navést")),
+        /*#__PURE__*/React.createElement("button", { onClick: () => navigateToArea(a.id), "data-ob": a.id === "ozn" ? "nav" : undefined, className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#7ec8ff" } }, "🧭 Navést")),
       activeArea === a.id && /*#__PURE__*/React.createElement("div", { className: "mt-1 flex flex-col gap-0.5" },
         areaActs(a.id).map(act => {
+          if (act.id === "pokani-denik") {
+            const jState = journalStatus;
+            const jLabel = jState === "done" ? "Deník proměny — dokončeno" : jState === "draft" ? "Deník proměny — rozpracováno" : "Deník proměny — otevřít zápis";
+            return /*#__PURE__*/React.createElement("button", { key: act.id, onClick: () => { setJournalOpen(true); sfxClick(); }, "data-ob": "journal", className: "mb-1 flex w-full items-center gap-2 rounded border-2 px-2 py-1.5 text-left text-[10px]", style: { borderColor: jState === "done" ? "#7dd87d" : "#f5a524", background: "rgba(245,165,36,.08)" } },
+              /*#__PURE__*/React.createElement("span", { style: { color: jState === "done" ? "#7dd87d" : "#f5a524" } }, jState === "done" ? "☑" : "📖"),
+              /*#__PURE__*/React.createElement("span", { style: { color: jState === "done" ? "#7dd87d" : "#ffe9a8" } }, jLabel));
+          }
           const isDone = todayRec && todayRec.acts && todayRec.acts[act.id] && todayRec.acts[act.id].done;
           return /*#__PURE__*/React.createElement("button", { key: act.id, onClick: () => isDone ? uncompleteActivity(act.id) : completeActivity(act.id), disabled: dayClosed, className: "flex items-center gap-2 rounded px-1.5 py-1 text-left text-[10px]", style: { background: isDone ? "rgba(125,216,125,.12)" : "rgba(0,0,0,.25)", opacity: dayClosed ? 0.5 : 1 } },
             /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#5c5140" } }, isDone ? "☑" : "☐"),
             /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#d8c9a3", textDecoration: isDone && dayClosed ? "none" : isDone ? "none" : "none" } }, act.name));
         })),
         dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 text-[9px] italic", style: { color: "#8a7a5c" } }, "Den je uzavřen — činnosti jsou uzamčeny."))),
-    !dayClosed && /*#__PURE__*/React.createElement("button", { onClick: requestCloseDay, className: "btnD2 daybtn mt-1 w-full py-2 text-xs font-bold", style: { color: totalActsDone > 0 ? "#ffd700" : "#5c5140", opacity: totalActsDone > 0 ? 1 : 0.5 } }, "🕊 Dokončit dnešní den", totalActsDone === 0 && /*#__PURE__*/React.createElement("span", { className: "block text-[9px] font-normal", style: { color: "#8a7a5c" } }, "(nejdřív splň nějakou činnost)")),
+    !dayClosed && /*#__PURE__*/React.createElement("button", { onClick: requestCloseDay, "data-ob": "done", className: "btnD2 daybtn mt-1 w-full py-2 text-xs font-bold", style: { color: totalActsDone > 0 ? "#ffd700" : "#5c5140", opacity: totalActsDone > 0 ? 1 : 0.5 } }, "🕊 Dokončit dnešní den", totalActsDone === 0 && /*#__PURE__*/React.createElement("span", { className: "block text-[9px] font-normal", style: { color: "#8a7a5c" } }, "(nejdřív splň nějakou činnost)")),
     dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, "✓ Den uzavřen — Perla svítí z tohoto dne."));
   const main = /*#__PURE__*/React.createElement("div", { style: { ...d2font, backgroundColor: "#0c0907", minHeight: "100vh", color: "#d8c9a3" } },
     /*#__PURE__*/React.createElement("style", null, SHARED_CSS),
@@ -1817,7 +2118,7 @@ function App() {
     /*#__PURE__*/React.createElement("div", { className: "mx-auto flex min-h-screen max-w-[1400px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:p-3", style: { paddingTop: "max(8px, env(safe-area-inset-top))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
       /*#__PURE__*/React.createElement("div", { className: "flex flex-col gap-2 lg:flex-1 lg:min-w-0" },
         topBar,
-        /*#__PURE__*/React.createElement("div", { className: "relative flex-1 overflow-hidden rounded", style: { minHeight: 280, height: "calc(100vh - 210px)" } },
+        /*#__PURE__*/React.createElement("div", { className: "relative flex-1 overflow-hidden rounded", style: { minHeight: 240, height: "calc(100vh - 200px)" } },
           /*#__PURE__*/React.createElement(MapView, { heroCls: hero.cls, heroPal: heroPal, entities: entities, shine: shineT, paused: paused, onEntity: onEntity, onSanctuary: onSanctuary, navTarget: navTarget, canvasSizeRef: canvasSizeRef }),
           navTarget && /*#__PURE__*/React.createElement("div", { className: "pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded px-2 py-0.5 text-[10px]", style: { background: "rgba(13,9,6,.85)", color: "#ffe9a8" } }, "➤ Cíl: ", navTarget.label)),
         /*#__PURE__*/React.createElement("div", { className: "hidden lg:block" }, dayPathPanel)),
@@ -1859,8 +2160,8 @@ function App() {
       /*#__PURE__*/React.createElement("div", { className: "mt-4 grid grid-cols-2 gap-2" },
         /*#__PURE__*/React.createElement("button", { onClick: () => setCloseSummary(false), className: "btnD2 py-2 text-xs" }, "Vrátit se a pokračovat"),
         /*#__PURE__*/React.createElement("button", { onClick: confirmCloseDay, className: "btnD2 daybtn py-2 text-xs font-bold", style: { color: "#ffd700" } }, "Dokončit den"))));
-  return main && [main, summaryModal,
-  chestOpen && React.createElement(ChestModal, {
+  return main && [/*#__PURE__*/React.createElement("div", { key: "main" }, main), summaryModal && /*#__PURE__*/React.createElement("div", { key: "summary" }, summaryModal),
+  chestOpen && React.createElement(ChestModal, { key: "chest",
     step: chestStep,
     onConfirm: () => {
       sfxChest();
@@ -1880,20 +2181,22 @@ function App() {
     },
     onClose: () => { setChestOpen(false); sfxClick(); }
   }),
-  viewDay !== null && weekRec.days[viewDay] && React.createElement(ViewDayModal, {
+  viewDay !== null && weekRec.days[viewDay] && React.createElement(ViewDayModal, { key: "viewday",
     dayIdx: viewDay,
     rec: weekRec.days[viewDay],
     onClose: () => { setViewDay(null); sfxClick(); }
   }),
-  levelUp !== null && React.createElement("div", { className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center" },
+  levelUp !== null && React.createElement("div", { key: "levelup", className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center" },
     React.createElement("div", { className: "absolute inset-0", style: { background: "radial-gradient(circle, rgba(255,215,0,.35) 0%, transparent 60%)", animation: "levelFlash 2.4s ease-out forwards" } }),
     React.createElement("div", { className: "text-center", style: { animation: "popIn .5s ease-out" } },
       React.createElement("div", { className: "logoGold text-4xl font-bold sm:text-5xl", style: { letterSpacing: "0.2em" } }, "LEVEL UP!"),
       React.createElement("div", { className: "mt-2 text-lg sm:text-xl", style: { color: "#fff7d8" } }, "Úroveň ", levelUp, " — jsi o krok blíž proměně!"))),
-  React.createElement("div", { className: "pointer-events-none fixed inset-0 z-50" },
+  React.createElement("div", { key: "particles", className: "pointer-events-none fixed inset-0 z-50" },
     particles.map(p => React.createElement("div", { key: p.id, style: { position: "absolute", left: p.x, top: p.y, width: p.size, height: p.size, background: p.color, boxShadow: "0 0 6px " + p.color, "--dx": p.dx, "--dy": p.dy, animation: "floatUp 1s ease-out forwards" } }))),
-  toast && React.createElement("div", { className: "panelD2 fixed bottom-6 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 px-3 py-2 text-center text-[11px]", style: { animation: "popIn .25s ease-out" } }, toast),
-  invOpen && React.createElement(InvModal, { save: save, gear: gear, hero: hero, heroClass: heroClass, onEquip: equipItem, onClose: () => { setInvOpen(false); sfxClick(); } })];
+  toast && React.createElement("div", { key: "toast", className: "panelD2 fixed bottom-6 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 px-3 py-2 text-center text-[11px]", style: { animation: "popIn .25s ease-out" } }, toast),
+  invOpen && React.createElement(InvModal, { key: "inv", save: save, gear: gear, hero: hero, heroClass: heroClass, onEquip: equipItem, onClose: () => { setInvOpen(false); sfxClick(); } }),
+  journalOpen && React.createElement(JournalModal, { key: "journal", dateK: todayKey, entry: journalEntry, dayClosed: dayClosed, onClose: () => setJournalOpen(false), onSave: saveJournalTexts, onComplete: () => { completeJournalAct(); setJournalOpen(false); } }),
+  obStep !== null && React.createElement(Onboarding, { key: "ob", step: obStep, onNext: () => setObStep(st => Math.min(ONBOARDING_STEPS.length - 1, st + 1)), onSkip: finishOnboarding })];
 }
 function InvModal({ save, gear, hero, heroClass, onEquip, onClose }) {
   return React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", style: { backgroundColor: "rgba(5,3,2,.88)" }, onClick: onClose },
