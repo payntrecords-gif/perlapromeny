@@ -14,7 +14,23 @@
 <title>Perla Proměny — pracovní náhled</title>
 <style>html,body{background:#0d0906;margin:0;padding:0;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}</style>
 </head>
-<body>
+<body><script>
+(function(){
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    var sc = location.pathname;
+    var overlapping = regs.filter(function(r){ return r.scope !== sc && sc.indexOf(r.scope) === 0; });
+    if (overlapping.length > 0) {
+      console.warn("[PREVIEW] Detekován nadřazený service worker (scope " + overlapping.map(function(r){return r.scope;}).join(", ") + "). Náhled může být ovlivněn jeho cache. Pokud se nezobrazuje aktuální verze náhledu, otevři náhled v anonymním okně.");
+      var b=document.createElement("div");
+      b.style.cssText="position:fixed;bottom:70px;left:10px;right:10px;background:#8a4c2c;color:#fff;padding:10px 12px;border-radius:8px;font-size:12px;z-index:98;font-family:sans-serif";
+      b.textContent="Varování: na tomto zařízení běží produkční service worker. Náhled může zobrazovat starou verzi — použij anonymní okno nebo aktualizuj produkční SW (nová verze v10 preview cestu ignoruje).";
+      document.body.appendChild(b);
+      setTimeout(function(){ b.remove(); }, 8000);
+    }
+  }).catch(function(){});
+})();
+</script>
 <div id="root"></div>
 <script>/**
  * @license React
