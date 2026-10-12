@@ -318,6 +318,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 </script>
 <script>const React=window.React, ReactDOM=window.ReactDOM;</script>
 <script>
+
 const {
   useState,
   useEffect,
@@ -364,6 +365,56 @@ const CATEGORIES = [{
   desc: "Čiňme pokání! Proměňme se! Království nebeské je blízko!",
   tasks: ["Deník proměny (3× vděčnost, boj, změna)", "Skutek proměny (poslušnost / zodpovědnost)", "Shimbang"]
 }];
+const ACTIVITY_AREAS = [{
+  id: "ozn",
+  name: "Označování",
+  glyph: "📜",
+  color: "#a78bfa",
+  mapPos: [6, 3]
+}, {
+  id: "vira",
+  name: "Život víry",
+  glyph: "📖",
+  color: "#60a5fa",
+  mapPos: [41, 3]
+}, {
+  id: "evang",
+  name: "Evangelizace",
+  glyph: "🔥",
+  color: "#4ade80",
+  mapPos: [6, 24]
+}, {
+  id: "pokani",
+  name: "Pokání / Proměna",
+  glyph: "🕊️",
+  color: "#f5a524",
+  mapPos: [41, 24]
+}];
+const ACTIVITIES = [
+  { id: "ozn-poslech3", areaId: "ozn", name: "Poslech 3minutového slova" },
+  { id: "ozn-mye", areaId: "ozn", name: "MYE shim 3minutového slova" },
+  { id: "ozn-kazani", areaId: "ozn", name: "Poslech / organizování slova z kázání" },
+  { id: "ozn-zjeveni", areaId: "ozn", name: "Poslech / organizování slova Zjevení" },
+  { id: "ozn-speech", areaId: "ozn", name: "Speech z kázání / Zjevení" },
+  { id: "vira-modlitba", areaId: "vira", name: "Začít a zakončit den s modlitbou" },
+  { id: "vira-shromazdeni", areaId: "vira", name: "Účast na modlitebním shromáždění" },
+  { id: "vira-svatyne", areaId: "vira", name: "Příchod do svatyně offline" },
+  { id: "vira-gy", areaId: "vira", name: "Účast na GY bohoslužbě" },
+  { id: "evang-chat", areaId: "evang", name: "Poslat modlitbu do skupinového chatu" },
+  { id: "evang-nb-off", areaId: "evang", name: "Offline NB" },
+  { id: "evang-nb-on", areaId: "evang", name: "Online NB" },
+  { id: "evang-jednotka", areaId: "evang", name: "Jednodenní speciální jednotka" },
+  { id: "pokani-denik", areaId: "pokani", name: "Deník proměny" },
+  { id: "pokani-skutek", areaId: "pokani", name: "Skutek proměny (poslušnost / zodpovědnost / pokora…)" },
+  { id: "pokani-shimbang", areaId: "pokani", name: "Shimbang" }
+];
+function areaActs(areaId) {
+  return ACTIVITIES.filter(a => a.areaId === areaId);
+}
+function actsDoneInArea(rec, areaId) {
+  if (!rec || !rec.acts) return 0;
+  return areaActs(areaId).filter(a => rec.acts[a.id] && rec.acts[a.id].done).length;
+}
 const CLASSES = [{
   id: "war",
   name: "Bojovník víry",
@@ -567,7 +618,7 @@ const RARITIES = [{
   max: 24,
   affixes: 2
 }];
-const SAVE_KEY = "perla-promeny-v2";
+const SAVE_KEY = "perla-promeny-v3";
 function defaultSave() {
   return {
     hero: null,
@@ -585,12 +636,42 @@ function defaultSave() {
 function loadSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) return {
-      ...defaultSave(),
-      ...JSON.parse(raw)
-    };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return migrateSave({ ...defaultSave(), ...parsed });
+    }
   } catch (e) {}
   return defaultSave();
+}
+function migrateSave(s) {
+  const out = { ...s, v: 3 };
+  if (out.weeks) {
+    Object.keys(out.weeks).forEach(wk => {
+      const w = out.weeks[wk];
+      if (!w || !w.days) return;
+      Object.keys(w.days).forEach(di => {
+        const d = w.days[di];
+        if (d && !d.acts) {
+          const acts = {};
+          if (d.tasks && Array.isArray(d.tasks) && d.catId) {
+            const cat = CATEGORIES.find(c => c.id === d.catId);
+            if (cat) {
+              d.tasks.forEach(ti => {
+                const t = cat.tasks[ti];
+                if (t) {
+                  const aid = d.catId + "-" + String(ti).padStart(2, "0");
+                  acts[aid] = { done: true, at: d.at || Date.now(), name: t };
+                }
+              });
+            }
+          }
+          w.days[di] = { ...d, acts, closed: true };
+        }
+      });
+    });
+  }
+  if (!out.journal) out.journal = {};
+  return out;
 }
 function dayIndex(d) {
   return (d.getDay() + 6) % 7;
@@ -1177,10 +1258,10 @@ function buildBackground() {
   return cv;
 }
 
-function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctuary }) {
+function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctuary, navTarget, canvasSizeRef }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
-  const heroRef = useRef({ x: Math.floor(MAP_W / 2), y: Math.floor(MAP_H / 2) + 3, px: Math.floor(MAP_W / 2) * TILE, py: (Math.floor(MAP_H / 2) + 3) * TILE, moving: false, fromX: Math.floor(MAP_W / 2), fromY: Math.floor(MAP_H / 2) + 3, start: 0, dir: 0 });
+  const heroRef = useRef({ x: Math.floor(MAP_W / 2), y: Math.floor(MAP_H / 2) + 3, px: Math.floor(MAP_W / 2) * TILE, py: (Math.floor(MAP_H / 2) + 3) * TILE, moving: false, fromX: Math.floor(MAP_W / 2), fromY: Math.floor(MAP_H / 2) + 3, start: 0 });
   const entRef = useRef(entities);
   const pausedRef = useRef(paused);
   const cbRef = useRef({ onEntity, onSanctuary });
@@ -1188,14 +1269,31 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
   const shineRef = useRef(shine);
   const bgRef = useRef(null);
   const camRef = useRef({ x: 0, y: 0 });
-  const VIEW_W = 20;
-  const VIEW_H = 13;
-  const motesRef = useRef(Array.from({ length: 14 }, () => ({ x: Math.random() * (TILE * VIEW_W), y: 20 + Math.random() * 260, sp: 0.008 + Math.random() * 0.03, ph: Math.random() * 6.28, s: Math.random() < 0.3 ? 3 : 2 })));
+  const navRef = useRef(navTarget);
+  const [dims, setDims] = useState({ w: 24, h: 13 });
+  useEffect(() => { navRef.current = navTarget; }, [navTarget]);
   useEffect(() => { entRef.current = entities; }, [entities]);
   useEffect(() => { pausedRef.current = paused; }, [paused]);
   useEffect(() => { palRef.current = heroPal; }, [heroPal]);
   useEffect(() => { shineRef.current = shine; }, [shine]);
   useEffect(() => { cbRef.current = { onEntity, onSanctuary }; });
+  useEffect(() => {
+    const measure = () => {
+      const wrap = wrapRef.current;
+      if (!wrap) return;
+      const availW = wrap.clientWidth;
+      const availH = Math.max(280, window.innerHeight - (window.innerWidth < 1024 ? 300 : 160));
+      const wTiles = Math.max(12, Math.min(30, Math.floor(availW / TILE)));
+      const hTiles = Math.max(9, Math.min(22, Math.floor(availH / TILE)));
+      setDims({ w: wTiles, h: hTiles });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  const VIEW_W = dims.w;
+  const VIEW_H = dims.h;
+  useEffect(() => { if (canvasSizeRef) canvasSizeRef.current = { w: VIEW_W, h: VIEW_H }; }, [dims]);
   const tryStep = useCallback((dx, dy) => {
     if (pausedRef.current) return;
     const hs = heroRef.current;
@@ -1209,12 +1307,7 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
     if (ch === "s") { cbRef.current.onSanctuary(); return; }
     if (!walkable(ch)) return;
     hs.moving = true;
-    hs.fromX = hs.x;
-    hs.fromY = hs.y;
-    hs.x = nx;
-    hs.y = ny;
-    hs.start = performance.now();
-    hs.dir = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+    hs.fromX = hs.x; hs.fromY = hs.y; hs.x = nx; hs.y = ny; hs.start = performance.now();
     sfxStep();
   }, []);
   useEffect(() => {
@@ -1230,47 +1323,31 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
   }, [tryStep]);
   useEffect(() => {
     const cv = canvasRef.current;
-    if (!cv) return;
+    if (!cv || dims.w !== VIEW_W) return;
     const ctx = cv.getContext("2d");
     if (!ctx) return;
     if (!bgRef.current) bgRef.current = buildBackground();
     let raf = 0;
     const CW = TILE * VIEW_W;
     const CH = TILE * VIEW_H;
-    const clampCam = (cx, cy) => {
-      const maxX = TILE * MAP_W - CW;
-      const maxY = TILE * MAP_H - CH;
-      return { x: Math.max(0, Math.min(maxX, cx)), y: Math.max(0, Math.min(maxY, cy)) };
-    };
+    cv.width = CW; cv.height = CH;
+    const clampCam = (cx, cy) => ({ x: Math.max(0, Math.min(TILE * MAP_W - CW, cx)), y: Math.max(0, Math.min(TILE * MAP_H - CH, cy)) });
     const drawTorches = (t, camx, camy) => {
       TORCH_POS.forEach(([tx, ty], i) => {
         const px = tx * TILE - camx;
         const py = ty * TILE - camy;
         if (px < -TILE || px > CW || py < -TILE || py > CH) return;
         const flick = 0.85 + 0.15 * Math.sin(t / 120 + i * 2.1) * Math.cos(t / 300 + i);
-        ctx.fillStyle = "#3a2c1c";
-        ctx.fillRect(px + 6, py + 4, 4, 14);
-        ctx.fillStyle = "#5c4a24";
-        ctx.fillRect(px + 7, py + 4, 2, 14);
-        ctx.fillStyle = "#e05b1f";
-        ctx.beginPath();
-        ctx.arc(px + 8, py + 2, 5 * flick, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#ffc14d";
-        ctx.beginPath();
-        ctx.arc(px + 8, py + 1, 3 * flick, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#fff7d8";
-        ctx.beginPath();
-        ctx.arc(px + 8, py + 1, 1.5 * flick, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = "#3a2c1c"; ctx.fillRect(px + 6, py + 4, 4, 14);
+        ctx.fillStyle = "#5c4a24"; ctx.fillRect(px + 7, py + 4, 2, 14);
+        ctx.fillStyle = "#e05b1f"; ctx.beginPath(); ctx.arc(px + 8, py + 2, 5 * flick, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ffc14d"; ctx.beginPath(); ctx.arc(px + 8, py + 1, 3 * flick, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff7d8"; ctx.beginPath(); ctx.arc(px + 8, py + 1, 1.5 * flick, 0, Math.PI * 2); ctx.fill();
         const g = ctx.createRadialGradient(px + 8, py + 2, 4, px + 8, py + 2, 46);
         g.addColorStop(0, "rgba(255,180,80," + (0.28 * flick) + ")");
         g.addColorStop(1, "rgba(255,140,40,0)");
         ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(px + 8, py + 2, 46, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(px + 8, py + 2, 46, 0, Math.PI * 2); ctx.fill();
       });
     };
     const drawSanctuaryGlow = (t, camx, camy) => {
@@ -1280,16 +1357,12 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
       const pulse = 0.5 + 0.3 * Math.sin(t / 700);
       ctx.globalAlpha = 0.05 + sh * 0.22 + 0.03 * pulse;
       ctx.fillStyle = "#ffe9a8";
-      ctx.beginPath();
-      ctx.arc(scx, scy, 70, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(scx, scy, 70, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
     };
     const drawShadow = (cx2, cy2, rx) => {
       ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.beginPath();
-      ctx.ellipse(cx2, cy2, rx, rx * 0.38, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx2, cy2, rx, rx * 0.38, 0, 0, Math.PI * 2); ctx.fill();
     };
     const drawEntity = (e, t, camx, camy) => {
       const px = e.x * TILE - camx;
@@ -1302,8 +1375,7 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
         drawSpriteOutlined(ctx, ALTAR_ROWS, { P: "#fff7d8", W: "#ffffff", B: "#8a7355", G: "#ffd700" }, px + 3, py + 4, 2);
         for (let i = 0; i < 3; i++) {
           const a = t / 400 + i * Math.PI * 2 / 3;
-          ctx.fillStyle = "#ffd700";
-          ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t / 250 + i);
+          ctx.fillStyle = "#ffd700"; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t / 250 + i);
           ctx.fillRect(cx2 + Math.cos(a) * 13, py + 2 + Math.sin(a) * 7, 3, 3);
           ctx.globalAlpha = 1;
         }
@@ -1322,13 +1394,9 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
           const pulse = 0.45 + Math.sin(t / 250) * 0.3;
           ctx.strokeStyle = "rgba(255,215,0," + pulse + ")";
           ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(cx2, py + TILE / 2, 20 + Math.sin(t / 250) * 3, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx2, py + TILE / 2, 20 + Math.sin(t / 250) * 3, 0, Math.PI * 2); ctx.stroke();
           ctx.strokeStyle = "rgba(255,180,60," + pulse * 0.4 + ")";
-          ctx.beginPath();
-          ctx.arc(cx2, py + TILE / 2, 27 + Math.sin(t / 250 + 1) * 3, t / 600, t / 600 + 4.4);
-          ctx.stroke();
+          ctx.beginPath(); ctx.arc(cx2, py + TILE / 2, 27 + Math.sin(t / 250 + 1) * 3, t / 600, t / 600 + 4.4); ctx.stroke();
         }
         ctx.globalAlpha = alpha;
         drawSpriteOutlined(ctx, rows, pal, px + 0, py - 8 + bob, 2);
@@ -1336,15 +1404,64 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
         if (e.state === "today" || e.state === "open") {
           const ay = py - 20 + Math.sin(t / 200) * 3;
           ctx.fillStyle = "#ffd700";
-          ctx.beginPath();
-          ctx.moveTo(cx2 - 5, ay);
-          ctx.lineTo(cx2 + 5, ay);
-          ctx.lineTo(cx2, ay + 7);
-          ctx.closePath();
-          ctx.fill();
+          ctx.beginPath(); ctx.moveTo(cx2 - 5, ay); ctx.lineTo(cx2 + 5, ay); ctx.lineTo(cx2, ay + 7); ctx.closePath(); ctx.fill();
           drawText(ctx, "⚔ " + DAY_SHORT[e.dayIdx] + (e.state === "today" ? " DNEŠEK" : " OTEVŘENO"), cx2, py - 26, "#ffd700");
         } else {
           drawText(ctx, DAY_SHORT[e.dayIdx] + " zmeškáno", cx2, py - 6, "#a25555");
+        }
+      }
+    };
+    const drawNav = (t, camx, camy) => {
+      const nav = navRef.current;
+      if (!nav) return;
+      const hx = heroRef.current.px - camx;
+      const hy = heroRef.current.py - camy;
+      const txp = nav.x * TILE - camx + TILE / 2;
+      const typ = nav.y * TILE - camy + TILE / 2;
+      const onScreen = txp > 24 && txp < CW - 24 && typ > 24 && typ < CH - 24;
+      const pulse = 0.55 + 0.45 * Math.sin(t / 300);
+      if (onScreen) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,215,0," + (0.35 + 0.4 * pulse) + ")";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(txp, typ, 16 + Math.sin(t / 300) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255,247,216," + (0.2 + 0.2 * pulse) + ")";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(txp, typ, 24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        const cx0 = CW / 2, cy0 = CH / 2;
+        const ang = Math.atan2(typ - cy0, txp - cx0);
+        const edge = Math.min(CW, CH) * 0.36;
+        const ax = cx0 + Math.cos(ang) * edge;
+        const ay = cy0 + Math.sin(ang) * edge;
+        ctx.save();
+        ctx.translate(ax, ay);
+        ctx.rotate(ang);
+        ctx.globalAlpha = 0.55 + 0.45 * pulse;
+        ctx.fillStyle = "#ffd700";
+        ctx.beginPath();
+        ctx.moveTo(14, 0); ctx.lineTo(-10, -10); ctx.lineTo(-4, 0); ctx.lineTo(-10, 10);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+        if (nav.label) {
+          ctx.globalAlpha = 0.9;
+          ctx.font = "bold 10px monospace";
+          ctx.textAlign = "center";
+          const dist = Math.max(1, Math.round(Math.hypot(nav.x - heroRef.current.x, nav.y - heroRef.current.y)));
+          const txt = nav.label + " · " + dist + " kroků";
+          const tw = ctx.measureText(txt).width;
+          ctx.fillStyle = "rgba(13,9,6,.85)";
+          const lx = Math.max(4, Math.min(CW - tw - 12, ax - tw / 2 - 4));
+          const ly = Math.max(14, ay - (ay > 30 ? 20 : -14));
+          ctx.fillRect(lx, ly - 10, tw + 8, 14);
+          ctx.fillStyle = "#ffe9a8";
+          ctx.fillText(txt, lx + 4, ly + 1);
+          ctx.globalAlpha = 1;
         }
       }
     };
@@ -1371,20 +1488,13 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
       const frame = hs.moving && Math.floor(t / 130) % 2 === 1 ? HERO_WALK[heroCls] || HERO_SPRITES[heroCls] : HERO_SPRITES[heroCls];
       drawShadow(hs.px - camx + 16, hs.py - camy + 30, 11);
       drawSpriteOutlined(ctx, frame, palRef.current, hs.px - camx - 2, hs.py - camy - 5 + bob, 2);
-      motesRef.current.forEach(m => {
-        const yy = m.y + Math.sin(t / 900 + m.ph) * 14;
-        const xx = (m.x + t * m.sp) % CW;
-        ctx.globalAlpha = 0.18 + 0.18 * Math.sin(t / 400 + m.ph);
-        ctx.fillStyle = yy % 3 < 1 ? "#ffd700" : "#fff7d8";
-        ctx.fillRect(xx, yy, m.s, m.s);
-        ctx.globalAlpha = 1;
-      });
       drawTorches(t, camx, camy);
+      drawNav(t, camx, camy);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [heroCls]);
+  }, [heroCls, dims]);
   const onTapCanvas = e => {
     if (pausedRef.current) return;
     const cv = canvasRef.current;
@@ -1402,18 +1512,8 @@ function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctu
     if (Math.abs(dx) > Math.abs(dy)) tryStep(Math.sign(dx), 0);
     else tryStep(0, Math.sign(dy));
   };
-  const dpadBtn = (label, dx, dy) => /*#__PURE__*/React.createElement("button", {
-    onPointerDown: e => { e.preventDefault(); tryStep(dx, dy); },
-    className: "btnD2 flex h-11 w-11 select-none items-center justify-center text-lg font-bold"
-  }, label);
-  return /*#__PURE__*/React.createElement("div", { className: "flex flex-col items-center gap-2" },
-    /*#__PURE__*/React.createElement("div", { ref: wrapRef, className: "mx-auto w-full", style: { maxWidth: TILE * VIEW_W } },
-      /*#__PURE__*/React.createElement("canvas", { ref: canvasRef, width: TILE * VIEW_W, height: TILE * VIEW_H, onPointerDown: onTapCanvas, className: "w-full rounded", style: { imageRendering: "pixelated", border: "2px solid #3a2c1c", boxShadow: "0 0 0 2px #0d0906, 0 6px 24px rgba(0,0,0,.7)", background: "#0c0907", touchAction: "none" } })),
-    /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-center gap-1" },
-      /*#__PURE__*/React.createElement("div", null, dpadBtn("◀", -1, 0)),
-      /*#__PURE__*/React.createElement("div", { className: "flex flex-col gap-1" }, dpadBtn("▲", 0, -1), dpadBtn("▼", 0, 1)),
-      /*#__PURE__*/React.createElement("div", null, dpadBtn("▶", 1, 0))),
-    /*#__PURE__*/React.createElement("div", { className: "text-center text-[10px]", style: { color: "#8a7a5c" } }, "Klepní na mapu pro krok, nebo použij šipky / tlačítka. Dojdi ke svítícímu nepříteli ⚔ — tvému úkolu dne. Svatyně ti obnoví sílu."));
+  return /*#__PURE__*/React.createElement("div", { ref: wrapRef, className: "w-full h-full flex items-center justify-center" },
+    /*#__PURE__*/React.createElement("canvas", { ref: canvasRef, onPointerDown: onTapCanvas, className: "block", style: { imageRendering: "pixelated", border: "2px solid #3a2c1c", boxShadow: "0 0 0 2px #0d0906, 0 6px 24px rgba(0,0,0,.7)", background: "#0c0907", touchAction: "none", maxWidth: "100%", height: "auto" } }));
 }
 const SHARED_CSS = `
 @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
@@ -1489,7 +1589,6 @@ let particleId = 0;
 function App() {
   const [save, setSave] = useState(loadSave);
   const [testMode, setTestMode] = useState(false);
-  const [tab, setTab] = useState("mapa");
   const [particles, setParticles] = useState([]);
   const [toast, setToast] = useState("");
   const [floatXp, setFloatXp] = useState(null);
@@ -1500,21 +1599,21 @@ function App() {
   const [chestOpen, setChestOpen] = useState(false);
   const [chestStep, setChestStep] = useState("closed");
   const [resetArmed, setResetArmed] = useState(false);
+  const [navTarget, setNavTarget] = useState(null);
+  const [dayPanelOpen, setDayPanelOpen] = useState(false);
+  const [activeArea, setActiveArea] = useState(null);
+  const [closeSummary, setCloseSummary] = useState(false);
+  const [invOpen, setInvOpen] = useState(false);
+  const canvasSizeRef = useRef(null);
   useEffect(() => {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
-    } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
   }, [save]);
   const now = new Date();
   const todayIdx = dayIndex(now);
   const wk = isoWeekKey(now);
-  const weekRec = save.weeks[wk] || {
-    days: {},
-    chest: false
-  };
-  const daysDone = Object.keys(weekRec.days).length;
-  const bonusCount = Object.values(weekRec.days).filter(d => d.bonus && d.bonus.trim()).length;
-  const shineT = daysDone / 7;
+  const weekRec = save.weeks[wk] || { days: {}, chest: false };
+  const todayRec = weekRec.days[todayIdx] || null;
+  const daysDone = Object.keys(weekRec.days).filter(di => weekRec.days[di] && weekRec.days[di].closed).length;
   const level = levelFor(save.xp);
   const xpInto = save.xp - cumXp(level);
   const xpSpan = cumXp(level + 1) - cumXp(level);
@@ -1536,15 +1635,19 @@ function App() {
     const maxHp = 100 + v("amulet") * 3 + defense * 2;
     const crit = 8 + Math.floor(attack / 4);
     const gearScore = SLOTS.reduce((s, sl) => s + v(sl), 0);
-    return {
-      attack,
-      defense,
-      maxHp,
-      crit,
-      gearScore
-    };
+    return { attack, defense, maxHp, crit, gearScore };
   }, [equipped]);
   const heroPal = useMemo(() => save.hero ? heroPalette(save.hero.cls, equipped) : HERO_PALETTES.war, [save.hero, equipped]);
+  const areasDone = useMemo(() => ACTIVITY_AREAS.map(a => ({
+    ...a,
+    done: actsDoneInArea(todayRec, a.id),
+    total: areaActs(a.id).length
+  })), [todayRec]);
+  const totalActsDone = areasDone.reduce((s, a) => s + a.done, 0);
+  const totalActs = ACTIVITIES.length;
+  const pearlStage = Math.min(7, 1 + daysDone);
+  const shineT = Math.min(1, totalActsDone > 0 ? 0.15 + 0.85 * (daysDone / 7) : 0);
+  const dayClosed = !!(todayRec && todayRec.closed);
   function showToast(msg) {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2800);
@@ -1552,15 +1655,7 @@ function App() {
   function spawnParticles(x, y, colors, count = 26) {
     const ps = [];
     for (let i = 0; i < count; i++) {
-      ps.push({
-        id: particleId++,
-        x: x + (Math.random() - 0.5) * 60,
-        y: y + (Math.random() - 0.5) * 40,
-        dx: (Math.random() - 0.5) * 220 + "px",
-        dy: -(60 + Math.random() * 200) + "px",
-        size: 4 + Math.floor(Math.random() * 5),
-        color: colors[Math.floor(Math.random() * colors.length)]
-      });
+      ps.push({ id: particleId++, x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 40, dx: (Math.random() - 0.5) * 220 + "px", dy: -(60 + Math.random() * 200) + "px", size: 4 + Math.floor(Math.random() * 5), color: colors[Math.floor(Math.random() * colors.length)] });
     }
     setParticles(p => [...p, ...ps]);
     window.setTimeout(() => {
@@ -1569,749 +1664,261 @@ function App() {
     }, 1000);
   }
   function showXpFloat(text) {
-    setFloatXp({
-      id: particleId++,
-      text
-    });
+    setFloatXp({ id: particleId++, text });
     window.setTimeout(() => setFloatXp(null), 1400);
   }
   function createHero(name, cls) {
     sfxLevel();
-    setSave(s => ({
-      ...s,
-      hero: {
-        name: name.trim() || "Poutník",
-        cls
-      }
-    }));
-    window.setTimeout(() => spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#fff7d8", "#e08b3a"], 40), 60);
+    setSave(s => ({ ...s, hero: { name: name.trim() || "Poutník", cls } }));
   }
-  function completeDay(dayIdx, catId, taskIdxs, bonus) {
-    const cat = CATEGORIES.find(c => c.id === catId);
-    if (!cat || taskIdxs.length === 0) return null;
-    const cls = CLASSES.find(c => save.hero && c.id === save.hero.cls);
-    let gain = 100 + Math.max(0, taskIdxs.length - 1) * 15 + (bonus.trim() ? 50 : 0);
-    if (cls && cls.bonusCat === catId) gain *= 1.1;
-    gain *= 1 + Math.min(save.streak.count, 7) * 0.05;
-    gain = Math.round(gain);
-    const isBoss = dayIdx === 6;
-    const item = isBoss ? rollItem("rare") : rollItem();
+  function completeActivity(actId) {
+    if (dayClosed) { showToast("Dnešní den je už uzavřen. 🕊"); return; }
+    const act = ACTIVITIES.find(a => a.id === actId);
+    if (!act) return;
+    sfxComplete();
+    setSave(s => {
+      const w = s.weeks[wk] || { days: {}, chest: false };
+      const day = w.days[todayIdx] || { acts: {}, closed: false };
+      const acts = { ...(day.acts || {}) };
+      if (acts[actId] && acts[actId].done) return s;
+      acts[actId] = { done: true, at: Date.now() };
+      const xpGain = act ? 25 : 0;
+      return {
+        ...s,
+        xp: s.xp + xpGain,
+        weeks: { ...s.weeks, [wk]: { ...w, days: { ...w.days, [todayIdx]: { ...day, acts } } } }
+      };
+    });
+    const area = ACTIVITY_AREAS.find(a => a.id === act.areaId);
+    spawnParticles(window.innerWidth / 2, window.innerHeight / 3, [area.color, "#ffd700", "#fff7d8"], 14);
+    showToast("✨ " + act.name + " — zaznamenáno!");
+    sfxBonus();
+  }
+  function uncompleteActivity(actId) {
+    if (dayClosed) return;
+    setSave(s => {
+      const w = s.weeks[wk] || { days: {}, chest: false };
+      const day = w.days[todayIdx];
+      if (!day || !day.acts || !day.acts[actId]) return s;
+      const acts = { ...day.acts };
+      delete acts[actId];
+      return { ...s, xp: Math.max(0, s.xp - 25), weeks: { ...s.weeks, [wk]: { ...w, days: { ...w.days, [todayIdx]: { ...day, acts } } } } };
+    });
+  }
+  function navigateToArea(areaId) {
+    const area = ACTIVITY_AREAS.find(a => a.id === areaId);
+    if (!area) return;
+    setNavTarget({ x: area.mapPos[0], y: area.mapPos[1], label: area.name, areaId });
+    setActiveArea(areaId);
+    setDayPanelOpen(false);
+    sfxClick();
+  }
+  function requestCloseDay() {
+    if (totalActsDone === 0) { showToast("Nejdřív splň alespoň jednu činnost dnes. 🕊"); return; }
+    setCloseSummary(true);
+    sfxClick();
+  }
+  function confirmCloseDay() {
+    setCloseSummary(false);
+    const gain = 40 + totalActsDone * 15;
     const prevLevel = levelFor(save.xp);
     const nextXp = save.xp + gain;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    let streak = {
-      ...save.streak
-    };
-    if (streak.last !== dateKey(now)) {
-      streak.count = streak.last === dateKey(yesterday) ? streak.count + 1 : 1;
-      streak.last = dateKey(now);
-    }
     setSave(s => {
-      const w = s.weeks[wk] || {
-        days: {},
-        chest: false
-      };
-      return {
-        ...s,
-        xp: nextXp,
-        totalDays: s.totalDays + 1,
-        streak,
-        inv: [...s.inv, item],
-        equip: {
-          ...s.equip
-        },
-        weeks: {
-          ...s.weeks,
-          [wk]: {
-            ...w,
-            days: {
-              ...w.days,
-              [dayIdx]: {
-                catId,
-                tasks: taskIdxs,
-                bonus,
-                xp: gain,
-                item,
-                at: Date.now()
-              }
-            }
-          }
-        }
-      };
+      const w = s.weeks[wk] || { days: {}, chest: false };
+      const day = w.days[todayIdx] || { acts: {}, closed: false };
+      return { ...s, xp: nextXp, totalDays: s.totalDays + 1, weeks: { ...s.weeks, [wk]: { ...w, days: { ...w.days, [todayIdx]: { ...day, closed: true, closedAt: Date.now(), xp: gain } } } } };
     });
     const newLevel = levelFor(nextXp);
-    return {
-      xpGain: gain,
-      item,
-      leveled: newLevel > prevLevel,
-      newLevel
-    };
+    if (newLevel > prevLevel) {
+      setLevelUp(newLevel);
+      window.setTimeout(() => setLevelUp(null), 2400);
+      sfxLevel();
+    }
+    showXpFloat("+" + gain + " XP");
+    sfxVictory();
+    spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#fff7d8", "#7ec8ff"], 40);
+    showToast("🕊 Den uzavřen — Perla se rozzařuje!");
   }
-  function equipItem(item) {
-    sfxClick();
-    setSave(s => {
-      const eq = {
-        ...s.equip
-      };
-      if (eq[item.slot] === item.uid) {
-        delete eq[item.slot];
-      } else {
-        eq[item.slot] = item.uid;
-      }
-      return {
-        ...s,
-        equip: eq
-      };
-    });
+  function onEntity(dayIdx) {
+    if (dayIdx === todayIdx && !dayClosed) { setEncounterDay(dayIdx); return; }
+    if (weekRec.days[dayIdx] && weekRec.days[dayIdx].closed) { setViewDay(dayIdx); return; }
+    if (dayIdx < todayIdx) showToast("Tento den už pominul — dnešní proměna je nová šance!");
+    else showToast("Tato brána se otevře v " + DAY_NAMES[dayIdx].toLowerCase() + ". 🔒");
   }
   function onSanctuary() {
     sfxBonus();
     spawnParticles(window.innerWidth / 2, window.innerHeight / 3, ["#ffd700", "#fff7d8", "#7ec8ff"], 18);
-    showToast("⛪ Svatyně: „Pojďte ke mně všichni, kdo se namáháte…“ — tvoje víra se obnovila!");
+    showToast("Svatyně: tvoje víra se obnovila!");
   }
-  function onEntity(dayIdx) {
-    if (weekRec.days[dayIdx]) {
-      setViewDay(dayIdx);
-      return;
-    }
-    if (dayIdx === todayIdx || testMode) {
-      setEncounterDay(dayIdx);
-      return;
-    }
-    if (dayIdx < todayIdx) {
-      showToast("Tento duch už dávno vyhrál 😔 — dnešní bitva je nová šance!");
-    } else {
-      showToast("Tato brána se otevře v " + DAY_NAMES[dayIdx].toLowerCase() + ". 🔒");
-    }
-  }
-  function clickDay(i) {
+  function equipItem(item) {
     sfxClick();
-    if (weekRec.days[i]) {
-      setViewDay(i);
-      return;
-    }
-    if (i === todayIdx || testMode) {
-      setEncounterDay(i);
-      return;
-    }
-    if (i < todayIdx) showToast("Zmeškáno — dnešek je nová bitva! ⚔");else showToast("Otevře se v " + DAY_NAMES[i].toLowerCase() + ". 🔒");
-  }
-  function openChest() {
-    setChestStep("closed");
-    setChestOpen(true);
-  }
-  function confirmChest() {
-    sfxChest();
-    setChestStep("open");
-    spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50);
-    const prevLevel = levelFor(save.xp);
-    const nextXp = save.xp + 300;
     setSave(s => {
-      const w = s.weeks[wk] || {
-        days: {},
-        chest: false
-      };
-      return {
-        ...s,
-        xp: s.xp + 300,
-        inv: [...s.inv, crownItem()],
-        weeks: {
-          ...s.weeks,
-          [wk]: {
-            ...w,
-            chest: true
-          }
-        }
-      };
+      const eq = { ...s.equip };
+      if (eq[item.slot] === item.uid) delete eq[item.slot];
+      else eq[item.slot] = item.uid;
+      return { ...s, equip: eq };
     });
-    showXpFloat("+300 XP");
-    const newLevel = levelFor(nextXp);
-    if (newLevel > prevLevel) {
-      window.setTimeout(() => {
-        setLevelUp(newLevel);
-        sfxLevel();
-        window.setTimeout(() => setLevelUp(null), 2400);
-      }, 1400);
-    }
   }
   function resetAll() {
-    if (!resetArmed) {
-      setResetArmed(true);
-      window.setTimeout(() => setResetArmed(false), 3000);
-      return;
-    }
+    if (!resetArmed) { setResetArmed(true); window.setTimeout(() => setResetArmed(false), 2500); return; }
     setSave(defaultSave());
     setResetArmed(false);
     showToast("Hrdina byl smazán. Nová cesta začíná!");
   }
   if (!save.hero) {
-    return /*#__PURE__*/React.createElement(Creation, {
-      onCreate: createHero
-    });
+    return /*#__PURE__*/React.createElement(Creation, { onCreate: createHero });
   }
   const hero = save.hero;
   const heroClass = CLASSES.find(c => c.id === hero.cls) || CLASSES[0];
   const weekComplete = daysDone === 7;
-  const paused = encounterDay !== null || battle !== null || viewDay !== null || chestOpen;
+  const paused = encounterDay !== null || battle !== null || viewDay !== null || chestOpen || closeSummary;
   const entities = ENEMY_POS.map((pos, i) => ({
-    x: pos[0],
-    y: pos[1],
-    dayIdx: i,
-    state: weekRec.days[i] ? "done" : i === todayIdx ? "today" : i < todayIdx ? "missed" : testMode ? "open" : "locked"
+    x: pos[0], y: pos[1], dayIdx: i,
+    state: weekRec.days[i] && weekRec.days[i].closed ? "done" : i === todayIdx ? "today" : i < todayIdx ? "missed" : testMode ? "open" : "locked"
   }));
-  const tabs = [{
-    id: "mapa",
-    label: "🗺️ Mapa"
-  }, {
-    id: "tyden",
-    label: "📅 Týden"
-  }, {
-    id: "inv",
-    label: "🎒 Inventář"
-  }, {
-    id: "postava",
-    label: "⚔️ Postava"
-  }];
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      ...d2font,
-      backgroundColor: "#0c0907",
-      minHeight: "100vh",
-      color: "#d8c9a3"
-    }
-  }, /*#__PURE__*/React.createElement("style", null, SHARED_CSS), /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "fixed",
-      inset: 0,
-      pointerEvents: "none",
-      background: "radial-gradient(ellipse at 50% -10%, rgba(60,40,15,.35) 0%, transparent 55%), radial-gradient(ellipse at 50% 110%, rgba(20,10,4,.5) 0%, transparent 60%)"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "mx-auto flex max-w-3xl flex-col gap-3 p-3 sm:p-4"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 flex flex-wrap items-center justify-between gap-2 px-3 py-2"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
-    className: "logoGold text-xl font-bold sm:text-2xl",
-    style: {
-      letterSpacing: "0.18em"
-    }
-  }, "\u2694 PERLA PROM\u011ANY \u2694"), /*#__PURE__*/React.createElement("p", {
-    className: "text-[10px] sm:text-xs",
-    style: {
-      color: "#a78bfa"
-    }
-  }, "\u010Ci\u0148me pok\xE1n\xED! Prom\u011B\u0148me se! Kr\xE1lovstv\xED nebesk\xE9 je bl\xEDzko!")), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-1 text-[10px] sm:text-xs"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: gold
-  }, wk), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setTestMode(t => !t);
-      sfxClick();
-    },
-    className: "btnD2 px-2 py-1",
-    style: {
-      color: testMode ? "#ffd700" : "#8a7a5c"
-    }
-  }, testMode ? "🔓 Test ZAP" : "🔒 Test"), /*#__PURE__*/React.createElement("button", {
-    onClick: resetAll,
-    className: "btnD2 px-2 py-1",
-    style: {
-      color: resetArmed ? "#ff8877" : "#8a7a5c"
-    }
-  }, resetArmed ? "Opravdu?" : "☠"))), /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 relative flex items-center gap-3 px-3 py-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-    style: {
-      border: "2px solid #c7a44a",
-      background: "radial-gradient(circle at 35% 30%, #3a2c14, #140d06)",
-      color: "#ffd700",
-      boxShadow: "0 0 12px rgba(255,215,0,.35)"
-    }
-  }, level), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-0.5 flex justify-between text-[9px]",
-    style: gold
-  }, /*#__PURE__*/React.createElement("span", null, "Lv ", level, " \u2014 ", hero.name, " ", heroClass.glyph), /*#__PURE__*/React.createElement("span", null, xpInto, "/", xpSpan, " XP")), /*#__PURE__*/React.createElement("div", {
-    className: "h-3.5 overflow-hidden rounded-sm border-2",
-    style: {
-      borderColor: "#0d0906",
-      boxShadow: "inset 0 0 0 1px #3a2c1c",
-      background: "#100a06"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "xpfill h-full",
-    style: {
-      width: xpInto / xpSpan * 100 + "%"
-    }
-  }))), floatXp && /*#__PURE__*/React.createElement("div", {
-    key: floatXp.id,
-    className: "pointer-events-none absolute left-1/2 top-0 text-base font-bold",
-    style: {
-      color: "#ffd700",
-      textShadow: "0 0 10px rgba(255,215,0,.8)",
-      animation: "xpFloat 1.4s ease-out forwards"
-    }
-  }, floatXp.text)), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-4 gap-1"
-  }, tabs.map(t => /*#__PURE__*/React.createElement("button", {
-    key: t.id,
-    onClick: () => {
-      setTab(t.id);
-      sfxClick();
-    },
-    className: "btnD2 py-1.5 text-[10px] font-bold sm:text-xs",
-    style: tab === t.id ? {
-      color: "#ffd700",
-      filter: "brightness(1.25)",
-      boxShadow: "inset 0 0 0 1px #c7a44a, inset 0 2px 0 rgba(216,169,74,.35), 0 3px 0 #050302"
-    } : {
-      color: "#8a7a5c"
-    }
-  }, t.label))), tab === "mapa" && /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-2 flex items-center justify-between text-[10px] sm:text-xs"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: gold
-  }, "Krajina prom\u011Bny \u2014 ", DAY_NAMES[todayIdx]), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#4ade80"
-    }
-  }, "Dne\u0161n\xED nep\u0159\xEDtel: ", ENEMIES[todayIdx].name, " ", weekRec.days[todayIdx] ? "✔ PORAŽEN" : "⚔ ČEKÁ")), /*#__PURE__*/React.createElement(MapView, {
-    heroCls: hero.cls,
-    heroPal: heroPal,
-    entities: entities,
-    shine: shineT,
-    paused: paused,
-    onEntity: onEntity,
-    onSanctuary: onSanctuary
-  })), tab === "tyden" && /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 flex flex-col gap-3 p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between text-xs"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "uppercase tracking-widest",
-    style: gold
-  }, "T\xFDdenn\xED bitva \u2014 jedna br\xE1na denn\u011B"), /*#__PURE__*/React.createElement("span", {
-    style: gold
-  }, daysDone, "/7 \u2694")), /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-4 gap-2 sm:grid-cols-7"
-  }, DAY_SHORT.map((dn, i) => {
-    const rec = weekRec.days[i];
-    const done = !!rec;
-    const unlocked = i === todayIdx || testMode;
-    const missed = !rec && i < todayIdx && !testMode;
-    const cat = rec ? CATEGORIES.find(c => c.id === rec.catId) : null;
-    return /*#__PURE__*/React.createElement("button", {
-      key: i,
-      onClick: () => clickDay(i),
-      className: "daybtn relative flex h-28 flex-col items-center justify-center gap-1 rounded border-2 p-1",
-      style: {
-        borderColor: done ? cat ? cat.color : "#4ade80" : unlocked ? "#c7a44a" : missed ? "#552222" : "#2a2018",
-        background: done ? "linear-gradient(180deg,#1c2416,#0d1208)" : unlocked ? "linear-gradient(180deg,#241a0c,#140d06)" : "#100b07",
-        boxShadow: unlocked && !done ? "0 0 14px rgba(199,164,74,.4), inset 0 0 0 1px #0d0906" : "inset 0 0 0 1px #0d0906"
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "text-[10px]",
-      style: {
-        color: "#8a7a5c"
-      }
-    }, dn), done ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg",
-      style: {
-        filter: "drop-shadow(0 0 6px " + (cat ? cat.color : "#4ade80") + ")"
-      }
-    }, cat ? cat.glyph : "✔"), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px] leading-tight text-center",
-      style: {
-        color: cat ? cat.color : "#4ade80"
-      }
-    }, cat ? cat.name : ""), rec.bonus && rec.bonus.trim() && /*#__PURE__*/React.createElement("div", {
-      className: "absolute right-1 top-1 text-[10px]"
-    }, "\u2728")) : unlocked ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg",
-      style: {
-        animation: "glowPulse 1.6s ease-in-out infinite"
-      }
-    }, "\u2694"), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px]",
-      style: gold
-    }, i === todayIdx ? "DNEŠEK" : "OTEVŘENO")) : missed ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg opacity-60"
-    }, "\u271D"), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px]",
-      style: {
-        color: "#a25555"
-      }
-    }, "Zme\u0161k\xE1no")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-      className: "text-lg opacity-50"
-    }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px] opacity-50",
-      style: gold
-    }, DAY_NAMES[i].slice(0, 5))));
-  })), weekComplete && !weekRec.chest && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      openChest();
-      sfxClick();
-    },
-    className: "daybtn flex items-center justify-center gap-2 rounded border-2 py-2 text-xs font-bold",
-    style: {
-      borderColor: "#ffd700",
-      background: "linear-gradient(180deg,#2a1f0c,#140d06)",
-      color: "#ffd700",
-      animation: "glowPulse 1.8s ease-in-out infinite"
-    }
-  }, /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: CHEST_ROWS,
-    palette: {
-      B: "#3a2410",
-      G: "#d8a94a",
-      Y: "#ffe98a",
-      W: "#fff7d8"
-    },
-    scale: 3,
-    outline: true
-  }), "OTEV\u0158\xCDT TRUHLU PROM\u011ANY!"), weekComplete && weekRec.chest && /*#__PURE__*/React.createElement("div", {
-    className: "text-center text-[10px]",
-    style: {
-      color: "#ffe86b"
-    }
-  }, "\uD83D\uDC51 Truhla prom\u011Bny otev\u0159ena \u2014 cel\xFD t\xFDden dokon\u010Den! Sl\xE1va hrdinovi!"), /*#__PURE__*/React.createElement("div", {
-    className: "text-center text-[9px]",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, "Ka\u017Ed\xFD den 1 % k prom\u011Bn\u011B. Ka\u017Ed\xFD den poraz jednoho ducha \u2014 a perla bude sv\xEDtit st\xE1le jasn\u011Bji.")), tab === "inv" && /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-2 flex flex-wrap items-center justify-between gap-1 text-xs"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "uppercase tracking-widest",
-    style: gold
-  }, "Invent\xE1\u0159 \u2014 v\xFDstroj Bo\u017E\xED (Ef 6)"), /*#__PURE__*/React.createElement("span", {
-    className: "text-[9px]",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#d8c9a3"
-    }
-  }, "b\u011B\u017En\xE1"), " \xB7 ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#6f8fff"
-    }
-  }, "magick\xE1"), " \xB7", " ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#ffe86b"
-    }
-  }, "vz\xE1cn\xE1"), " \xB7 ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#e08b3a"
-    }
-  }, "jedine\u010Dn\xE1"))), save.inv.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "py-6 text-center text-xs",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, "Invent\xE1\u0159 je pr\xE1zdn\xFD. Poraz dne\u0161n\xEDho ducha a vyber si prvn\xED kus v\xFDstroje! \u2694") : /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-2 gap-2 sm:grid-cols-3"
-  }, save.inv.slice().reverse().map(item => {
-    const rar = rarityOf(item.rarityId);
-    const isEquipped = save.equip[item.slot] === item.uid;
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.uid,
-      onClick: () => equipItem(item),
-      className: "daybtn flex items-center gap-2 rounded border-2 p-2 text-left",
-      style: {
-        borderColor: isEquipped ? "#ffd700" : rar.color,
-        background: isEquipped ? "linear-gradient(180deg,#2a1f0c,#140d06)" : "linear-gradient(180deg,#191108,#0d0906)",
-        boxShadow: (item.rarityId === "rare" || item.rarityId === "unique" ? "0 0 12px " + rar.color + "55, " : "") + "inset 0 0 0 1px #0d0906"
-      }
-    }, /*#__PURE__*/React.createElement(PixelSprite, {
-      rows: ICONS[item.icon],
-      palette: iconPalette(item.color),
-      scale: 3,
-      outline: true
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0 flex-1"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "truncate text-[10px] font-bold",
-      style: {
-        color: rar.color
-      }
-    }, item.name), /*#__PURE__*/React.createElement("div", {
-      className: "text-[9px]",
-      style: {
-        color: "#7ec8ff"
-      }
-    }, "+", item.statVal, " % ", item.statLabel, " \u2022 ", SLOT_NAMES[item.slot]), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px]",
-      style: {
-        color: isEquipped ? "#ffd700" : "#8a7a5c"
-      }
-    }, isEquipped ? "✔ VYBAVENO (klikni = sundat)" : "Klikni = vybavit")));
-  }))), tab === "postava" && /*#__PURE__*/React.createElement("div", {
-    className: "grid gap-3 lg:grid-cols-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 flex flex-col items-center gap-2 p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs uppercase tracking-widest",
-    style: gold
-  }, hero.name, " \u2014 ", heroClass.name), /*#__PURE__*/React.createElement("div", {
-    className: "relative flex h-40 w-full items-end justify-center rounded",
-    style: {
-      background: "radial-gradient(ellipse at 50% 85%, #2a1f12 0%, #0c0907 70%)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "shadowPad absolute bottom-2 h-6 w-28"
-  }), /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: HERO_SPRITES[hero.cls],
-    palette: heroPal,
-    scale: 7,
-    outline: true,
-    style: {
-      animation: "bob 2.2s ease-in-out infinite"
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "text-[10px]",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, heroClass.bonusText), /*#__PURE__*/React.createElement("div", {
-    className: "grid w-full grid-cols-2 gap-1 text-[10px]"
-  }, /*#__PURE__*/React.createElement(Stat, {
-    label: "\xDAtok \u2694",
-    value: String(gear.attack)
-  }), /*#__PURE__*/React.createElement(Stat, {
-    label: "Obrana \uD83D\uDEE1",
-    value: String(gear.defense)
-  }), /*#__PURE__*/React.createElement(Stat, {
-    label: "V\xEDra \u2764\uFE0F",
-    value: String(gear.maxHp)
-  }), /*#__PURE__*/React.createElement(Stat, {
-    label: "Krit \uD83D\uDCA5",
-    value: gear.crit + " %"
-  }), /*#__PURE__*/React.createElement(Stat, {
-    label: "S\xE9rie \uD83D\uDD25",
-    value: String(save.streak.count)
-  }), /*#__PURE__*/React.createElement(Stat, {
-    label: "Gear",
-    value: String(gear.gearScore)
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "w-full"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mb-0.5 flex justify-between text-[9px]"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: gold
-  }, "Prom\u011Bna (celkov\xE1)"), /*#__PURE__*/React.createElement("span", {
-    style: gold
-  }, Math.min(100, save.totalDays), " %")), /*#__PURE__*/React.createElement("div", {
-    className: "h-2.5 overflow-hidden rounded-sm border-2",
-    style: {
-      borderColor: "#0d0906",
-      boxShadow: "inset 0 0 0 1px #3a2c1c",
-      background: "#100a06"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-full",
-    style: {
-      width: Math.min(100, save.totalDays) + "%",
-      background: "linear-gradient(90deg,#5c4a1e,#e8c05a)"
-    }
-  })))), /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 flex flex-col items-center gap-2 p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs uppercase tracking-widest",
-    style: gold
-  }, "Perla"), /*#__PURE__*/React.createElement("div", {
-    className: "relative flex h-36 w-full items-center justify-center"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "absolute rounded-full",
-    style: {
-      width: 90 + shineT * 44,
-      height: 90 + shineT * 44,
-      background: "radial-gradient(circle, rgba(255,240,190,.6) 0%, rgba(255,215,0,.2) 45%, transparent 70%)",
-      opacity: 0.25 + shineT * 0.75,
-      transition: "all .8s ease"
-    }
-  }), /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: PEARL_ROWS,
-    palette: pearlPalette(shineT),
-    scale: 5,
-    outline: true,
-    style: {
-      animation: "bob 3s ease-in-out infinite"
-    }
-  }), bonusCount > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "absolute -top-1 right-2 text-xs",
-    style: {
-      animation: "shimmer 1.4s ease-in-out infinite"
-    }
-  }, "\u2728", bonusCount)), /*#__PURE__*/React.createElement("div", {
-    className: "text-xs"
-  }, "Z\xE1\u0159e perly: ", /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#ffd700"
-    }
-  }, daysDone, "/7")), /*#__PURE__*/React.createElement("div", {
-    className: "grid w-full grid-cols-3 gap-1"
-  }, SLOTS.map(sl => {
-    const it = equipped[sl];
-    const rar = it ? rarityOf(it.rarityId) : null;
-    return /*#__PURE__*/React.createElement("div", {
-      key: sl,
-      className: "flex items-center gap-1 rounded border-2 p-1",
-      style: {
-        borderColor: rar ? rar.color : "#2a2018",
-        background: "linear-gradient(180deg,#191108,#0d0906)",
-        boxShadow: rar ? "0 0 8px " + rar.color + "44" : "none",
-        minHeight: 36
-      }
-    }, it ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PixelSprite, {
-      rows: ICONS[it.icon],
-      palette: iconPalette(it.color),
-      scale: 2,
-      outline: true
-    }), /*#__PURE__*/React.createElement("div", {
-      className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "truncate text-[8px]",
-      style: {
-        color: rar ? rar.color : "#8a7a5c"
-      }
-    }, it.name), /*#__PURE__*/React.createElement("div", {
-      className: "text-[8px]",
-      style: {
-        color: "#7ec8ff"
-      }
-    }, "+", it.statVal))) : /*#__PURE__*/React.createElement("span", {
-      className: "text-[8px]",
-      style: {
-        color: "#5a4d3a"
-      }
-    }, SLOT_NAMES[sl], /*#__PURE__*/React.createElement("br", null), "(pr\xE1zdn\xE9)"));
-  })), bonusCount > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "w-full border-t pt-1 text-[9px] leading-snug",
-    style: {
-      borderColor: "#3a2c1c",
-      color: "#8a7a5c"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: "#ffe86b"
-    }
-  }, "Z\xE1blesky perly:"), /*#__PURE__*/React.createElement("ul", {
-    className: "mt-0.5 list-disc pl-4"
-  }, Object.entries(weekRec.days).map(([di, r]) => r.bonus && r.bonus.trim() ? /*#__PURE__*/React.createElement("li", {
-    key: di
-  }, "\u201E", r.bonus.trim().slice(0, 50), "\"") : null))), /*#__PURE__*/React.createElement("div", {
-    className: "text-[9px] text-center",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, "Perla z Mt 13,45\u201346 \u2014 skryt\xFD poklad, kter\xFD se rozz\xE1\u0159\xED prom\u011Bnou."))), /*#__PURE__*/React.createElement("div", {
-    className: "pb-3 text-center text-[9px]",
-    style: {
-      color: "#6b5f49"
-    }
-  }, "Perla Prom\u011Bny \u2022 ChangeON \u2014 Radost v \u017Eivot\u011B v\xEDry p\u0159ich\xE1z\xED z prom\u011Bny! \u2022 vlastn\xED pixel art (CC0) \u2022 ulo\u017Eeno v prohl\xED\u017Ee\u010Di")), encounterDay !== null && /*#__PURE__*/React.createElement(EncounterModal, {
-    dayIdx: encounterDay,
-    gear: gear,
-    streakCount: save.streak.count,
-    heroBonusCat: heroClass.bonusCat,
-    onClose: () => {
-      setEncounterDay(null);
-      sfxClick();
-    },
-    onFight: (catId, tasks, bonus) => {
-      setEncounterDay(null);
-      setBattle({
-        dayIdx: encounterDay,
-        catId,
-        tasks,
-        bonus
+  const topBar = /*#__PURE__*/React.createElement("div", { className: "panelD2 flex items-center justify-between gap-2 px-3 py-1.5", style: { flexWrap: "wrap" } },
+    /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
+      DAY_SHORT.map((d, i) => {
+        const done = weekRec.days[i] && weekRec.days[i].closed;
+        const isToday = i === todayIdx;
+        const future = i > todayIdx;
+        return /*#__PURE__*/React.createElement("div", { key: i, className: "flex flex-col items-center justify-center rounded px-1.5 py-0.5", style: { minWidth: 34, border: isToday ? "2px solid #ffd700" : "1px solid #2a2018", background: isToday ? "linear-gradient(180deg,#2a1c08,#140d04)" : done ? "#1a2214" : "transparent", boxShadow: isToday ? "0 0 10px rgba(255,215,0,.4)" : "none", opacity: future ? 0.45 : 1 } },
+          /*#__PURE__*/React.createElement("span", { className: "text-[10px] font-bold", style: { color: done ? "#7dd87d" : isToday ? "#ffd700" : "#8a7a5c" } }, done ? "✓" : "", d),
+          isToday && /*#__PURE__*/React.createElement("span", { className: "text-[8px]", style: { color: "#ffe9a8" } }, "Dnes"));
+      })),
+    /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-2" },
+      /*#__PURE__*/React.createElement("div", { className: "flex items-center gap-1" },
+        /*#__PURE__*/React.createElement(PixelSprite, { rows: PEARL_ROWS, palette: pearlPalette(shineT), scale: 1, style: { width: 18, height: 18 } }),
+        /*#__PURE__*/React.createElement("span", { className: "text-[10px] font-bold", style: { color: "#ffd700" } }, "ChangeON", pearlStage)),
+      /*#__PURE__*/React.createElement("button", { onClick: () => { setTestMode(t => !t); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: testMode ? "#ffd700" : "#8a7a5c" } }, testMode ? "🔓 Test" : "🔒"),
+      /*#__PURE__*/React.createElement("button", { onClick: resetAll, className: "btnD2 px-2 py-0.5 text-[10px]", style: { color: resetArmed ? "#ff8877" : "#8a7a5c" } }, resetArmed ? "Opravdu?" : "☠")));
+  const dayPathPanel = /*#__PURE__*/React.createElement("div", { className: "panelD2 flex flex-col gap-1.5 p-3" },
+    /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between" },
+      /*#__PURE__*/React.createElement("div", { className: "text-xs font-bold", style: { color: "#ffe9a8" } }, "🚩 Dnešní cesta"),
+      /*#__PURE__*/React.createElement("span", { className: "text-[10px]", style: { color: "#8a7a5c" } }, totalActsDone, "/", totalActs, " činností")),
+    areasDone.map(a => /*#__PURE__*/React.createElement("div", { key: a.id, className: "rounded border-2 p-1.5", style: { borderColor: navTarget && navTarget.areaId === a.id ? a.color : "#2a2018", background: activeArea === a.id ? "rgba(255,255,255,.03)" : "transparent" } },
+      /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-between gap-1" },
+        /*#__PURE__*/React.createElement("button", { onClick: () => { setActiveArea(activeArea === a.id ? null : a.id); sfxClick(); }, className: "flex-1 text-left" },
+          /*#__PURE__*/React.createElement("span", { className: "text-[11px] font-bold", style: { color: a.done > 0 ? a.color : "#d8c9a3" } }, a.glyph, " ", a.name, " ", a.done > 0 ? "· " + a.done + "/" + a.total : "")),
+        /*#__PURE__*/React.createElement("button", { onClick: () => navigateToArea(a.id), className: "btnD2 px-2 py-0.5 text-[9px]", style: { color: "#7ec8ff" } }, "🧭 Navést")),
+      activeArea === a.id && /*#__PURE__*/React.createElement("div", { className: "mt-1 flex flex-col gap-0.5" },
+        areaActs(a.id).map(act => {
+          const isDone = todayRec && todayRec.acts && todayRec.acts[act.id] && todayRec.acts[act.id].done;
+          return /*#__PURE__*/React.createElement("button", { key: act.id, onClick: () => isDone ? uncompleteActivity(act.id) : completeActivity(act.id), disabled: dayClosed, className: "flex items-center gap-2 rounded px-1.5 py-1 text-left text-[10px]", style: { background: isDone ? "rgba(125,216,125,.12)" : "rgba(0,0,0,.25)", opacity: dayClosed ? 0.5 : 1 } },
+            /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#5c5140" } }, isDone ? "☑" : "☐"),
+            /*#__PURE__*/React.createElement("span", { style: { color: isDone ? "#7dd87d" : "#d8c9a3", textDecoration: isDone && dayClosed ? "none" : isDone ? "none" : "none" } }, act.name));
+        })),
+        dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 text-[9px] italic", style: { color: "#8a7a5c" } }, "Den je uzavřen — činnosti jsou uzamčeny."))),
+    !dayClosed && /*#__PURE__*/React.createElement("button", { onClick: requestCloseDay, className: "btnD2 daybtn mt-1 w-full py-2 text-xs font-bold", style: { color: totalActsDone > 0 ? "#ffd700" : "#5c5140", opacity: totalActsDone > 0 ? 1 : 0.5 } }, "🕊 Dokončit dnešní den", totalActsDone === 0 && /*#__PURE__*/React.createElement("span", { className: "block text-[9px] font-normal", style: { color: "#8a7a5c" } }, "(nejdřív splň nějakou činnost)")),
+    dayClosed && /*#__PURE__*/React.createElement("div", { className: "mt-1 rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, "✓ Den uzavřen — Perla svítí z tohoto dne."));
+  const main = /*#__PURE__*/React.createElement("div", { style: { ...d2font, backgroundColor: "#0c0907", minHeight: "100vh", color: "#d8c9a3" } },
+    /*#__PURE__*/React.createElement("style", null, SHARED_CSS),
+    /*#__PURE__*/React.createElement("div", { style: { position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% -10%, rgba(60,40,15,.35) 0%, transparent 55%), radial-gradient(ellipse at 50% 110%, rgba(20,10,4,.5) 0%, transparent 60%)" } }),
+    /*#__PURE__*/React.createElement("div", { className: "mx-auto flex min-h-screen max-w-[1400px] flex-col gap-2 px-2 py-2 lg:flex-row lg:gap-3 lg:p-3", style: { paddingTop: "max(8px, env(safe-area-inset-top))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
+      /*#__PURE__*/React.createElement("div", { className: "flex flex-col gap-2 lg:flex-1 lg:min-w-0" },
+        topBar,
+        /*#__PURE__*/React.createElement("div", { className: "relative flex-1 overflow-hidden rounded", style: { minHeight: 280, height: "calc(100vh - 210px)" } },
+          /*#__PURE__*/React.createElement(MapView, { heroCls: hero.cls, heroPal: heroPal, entities: entities, shine: shineT, paused: paused, onEntity: onEntity, onSanctuary: onSanctuary, navTarget: navTarget, canvasSizeRef: canvasSizeRef }),
+          navTarget && /*#__PURE__*/React.createElement("div", { className: "pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded px-2 py-0.5 text-[10px]", style: { background: "rgba(13,9,6,.85)", color: "#ffe9a8" } }, "➤ Cíl: ", navTarget.label)),
+        /*#__PURE__*/React.createElement("div", { className: "hidden lg:block" }, dayPathPanel)),
+      /*#__PURE__*/React.createElement("aside", { className: "hidden w-[300px] shrink-0 flex-col gap-2 lg:flex" },
+        /*#__PURE__*/React.createElement("div", { className: "panelD2 flex items-center gap-2 p-2" },
+          /*#__PURE__*/React.createElement("div", { className: "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold", style: { border: "2px solid #c7a44a", background: "radial-gradient(circle at 35% 30%, #3a2c14, #140d06)", color: "#ffd700" } }, level),
+          /*#__PURE__*/React.createElement("div", { className: "flex-1" },
+            /*#__PURE__*/React.createElement("div", { className: "mb-0.5 flex justify-between text-[9px]", style: gold },
+              /*#__PURE__*/React.createElement("span", null, "Lv ", level, " — ", hero.name, " ", heroClass.glyph),
+              /*#__PURE__*/React.createElement("span", null, xpInto, "/", xpSpan, " XP")),
+            /*#__PURE__*/React.createElement("div", { className: "h-3 overflow-hidden rounded-sm border-2", style: { borderColor: "#0d0906", background: "#100a06" } },
+              /*#__PURE__*/React.createElement("div", { className: "xpfill h-full", style: { width: xpInto / xpSpan * 100 + "%" } }))),
+          floatXp && /*#__PURE__*/React.createElement("div", { className: "pointer-events-none absolute text-sm font-bold", style: { color: "#ffd700" } }, floatXp.text)),
+        dayPathPanel,
+        /*#__PURE__*/React.createElement("button", { onClick: () => { setInvOpen(true); sfxClick(); }, className: "btnD2 w-full py-1.5 text-[11px]" }, "🎒 Inventář · ⚔️ Postava"),
+        weekComplete && !weekRec.chest && /*#__PURE__*/React.createElement("button", { onClick: () => { setChestStep("closed"); setChestOpen(true); }, className: "btnD2 daybtn w-full py-2 text-xs font-bold", style: { color: "#ffd700" } }, "OTEVŘÍT TRUHLU PROMĚNY!"),
+        weekComplete && weekRec.chest && /*#__PURE__*/React.createElement("div", { className: "rounded p-2 text-center text-[10px]", style: { background: "rgba(255,215,0,.08)", color: "#ffe9a8" } }, "Truhla proměny otevřena ✓")),
+      /*#__PURE__*/React.createElement("div", { className: "lg:hidden" },
+        dayPanelOpen
+          ? /*#__PURE__*/React.createElement("div", { className: "fixed inset-x-0 bottom-0 z-30 max-h-[75vh] overflow-y-auto rounded-t-2xl", style: { background: "#140d06", borderTop: "3px solid #3a2c1c", paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
+            /*#__PURE__*/React.createElement("div", { className: "sticky top-0 flex items-center justify-between px-3 py-2", style: { background: "#140d06", borderBottom: "1px solid #2a2018" } },
+              /*#__PURE__*/React.createElement("span", { className: "text-xs font-bold", style: { color: "#ffe9a8" } }, "🚩 Dnešní cesta"),
+              /*#__PURE__*/React.createElement("button", { onClick: () => { setDayPanelOpen(false); sfxClick(); }, className: "btnD2 px-2 py-0.5 text-[10px]" }, "✕ Zavřít")),
+            /*#__PURE__*/React.createElement("div", { className: "p-2" }, dayPathPanel))
+          : /*#__PURE__*/React.createElement("div", { className: "fixed inset-x-0 bottom-0 z-30", style: { paddingBottom: "max(8px, env(safe-area-inset-bottom))" } },
+            /*#__PURE__*/React.createElement("button", { onClick: () => { setDayPanelOpen(true); sfxClick(); }, className: "btnD2 mx-auto flex w-[94%] items-center justify-between rounded-t-lg px-3 py-2 text-[11px]", style: { color: "#ffe9a8" } },
+              "🚩 Dnešní cesta · ", totalActsDone, "/", totalActs,
+              /*#__PURE__*/React.createElement("span", { style: { color: "#7ec8ff" } }, "▾ Otevřít"))))));
+  const summaryModal = closeSummary && /*#__PURE__*/React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3", onClick: () => setCloseSummary(false) },
+    /*#__PURE__*/React.createElement("div", { className: "panelD2 w-full max-w-sm p-4", onClick: e => e.stopPropagation(), style: { animation: "popIn .25s ease-out" } },
+      /*#__PURE__*/React.createElement("div", { className: "text-center text-sm font-bold", style: { color: "#ffd700" } }, "🕊 Ukončit dnešní den?"),
+      /*#__PURE__*/React.createElement("div", { className: "mt-3 text-[11px]" },
+        /*#__PURE__*/React.createElement("div", { className: "mb-1", style: { color: "#7dd87d" } }, "Dnes bylo dokončeno:"),
+        areasDone.filter(a => a.done > 0).map(a => /*#__PURE__*/React.createElement("div", { key: a.id, style: { color: a.color } }, "• ", a.done, " činnost(i) — ", a.name)),
+        areasDone.every(a => a.done === 0) && /*#__PURE__*/React.createElement("div", { style: { color: "#8a7a5c" } }, "• zatím žádná činnost")),
+      /*#__PURE__*/React.createElement("div", { className: "mt-2 text-[11px]" },
+        /*#__PURE__*/React.createElement("div", { className: "mb-1", style: { color: "#8a7a5c" } }, "Zbývá (volitelné):"),
+        areasDone.filter(a => a.done < a.total).map(a => /*#__PURE__*/React.createElement("div", { key: a.id, style: { color: "#6b5f49" } }, "• ", a.name, " (", a.total - a.done, ")"))),
+      /*#__PURE__*/React.createElement("div", { className: "mt-4 grid grid-cols-2 gap-2" },
+        /*#__PURE__*/React.createElement("button", { onClick: () => setCloseSummary(false), className: "btnD2 py-2 text-xs" }, "Vrátit se a pokračovat"),
+        /*#__PURE__*/React.createElement("button", { onClick: confirmCloseDay, className: "btnD2 daybtn py-2 text-xs font-bold", style: { color: "#ffd700" } }, "Dokončit den"))));
+  return main && [main, summaryModal,
+  chestOpen && React.createElement(ChestModal, {
+    step: chestStep,
+    onConfirm: () => {
+      sfxChest();
+      setChestStep("open");
+      setSave(s2 => {
+        const w = s2.weeks[wk] || { days: {}, chest: false };
+        const nx = s2.xp + 300;
+        if (levelFor(nx) > levelFor(s2.xp)) {
+          const nl = levelFor(nx);
+          window.setTimeout(() => setLevelUp(nl), 300);
+          window.setTimeout(() => setLevelUp(null), 2800);
+          sfxLevel();
+        }
+        return { ...s2, xp: nx, inv: [...s2.inv, crownItem()], weeks: { ...s2.weeks, [wk]: { ...w, chest: true } } };
       });
-    }
-  }), battle && /*#__PURE__*/React.createElement(BattleModal, {
-    battle: battle,
-    gear: gear,
-    heroCls: hero.cls,
-    heroPal: heroPal,
-    onComplete: () => completeDay(battle.dayIdx, battle.catId, battle.tasks, battle.bonus),
-    spawnParticles: spawnParticles,
-    onClose: (leveled, newLevel) => {
-      setBattle(null);
-      if (leveled) {
-        setLevelUp(newLevel);
-        sfxLevel();
-        spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#e08b3a"], 44);
-        window.setTimeout(() => setLevelUp(null), 2400);
-      }
-    }
-  }), viewDay !== null && weekRec.days[viewDay] && /*#__PURE__*/React.createElement(ViewDayModal, {
+      spawnParticles(window.innerWidth / 2, window.innerHeight / 2, ["#ffd700", "#ffffff", "#ffe86b"], 50);
+    },
+    onClose: () => { setChestOpen(false); sfxClick(); }
+  }),
+  viewDay !== null && weekRec.days[viewDay] && React.createElement(ViewDayModal, {
     dayIdx: viewDay,
     rec: weekRec.days[viewDay],
-    onClose: () => {
-      setViewDay(null);
-      sfxClick();
-    }
-  }), chestOpen && /*#__PURE__*/React.createElement(ChestModal, {
-    step: chestStep,
-    onConfirm: confirmChest,
-    onClose: () => {
-      setChestOpen(false);
-      sfxClick();
-    }
-  }), levelUp !== null && /*#__PURE__*/React.createElement("div", {
-    className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "absolute inset-0",
-    style: {
-      background: "radial-gradient(circle, rgba(255,215,0,.35) 0%, transparent 60%)",
-      animation: "levelFlash 2.4s ease-out forwards"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "text-center",
-    style: {
-      animation: "popIn .5s ease-out"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "logoGold text-4xl font-bold sm:text-5xl",
-    style: {
-      letterSpacing: "0.2em"
-    }
-  }, "LEVEL UP!"), /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 text-lg sm:text-xl",
-    style: {
-      color: "#fff7d8"
-    }
-  }, "\xDArove\u0148 ", levelUp, " \u2014 jsi o krok bl\xED\u017E prom\u011Bn\u011B!"))), /*#__PURE__*/React.createElement("div", {
-    className: "pointer-events-none fixed inset-0 z-50"
-  }, particles.map(p => /*#__PURE__*/React.createElement("div", {
-    key: p.id,
-    style: {
-      position: "absolute",
-      left: p.x,
-      top: p.y,
-      width: p.size,
-      height: p.size,
-      background: p.color,
-      boxShadow: "0 0 6px " + p.color,
-      ["--dx"]: p.dx,
-      ["--dy"]: p.dy,
-      animation: "floatUp 1s ease-out forwards"
-    }
-  }))), toast && /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 fixed bottom-6 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 px-3 py-2 text-center text-[11px]",
-    style: {
-      animation: "popIn .25s ease-out"
-    }
-  }, toast));
+    onClose: () => { setViewDay(null); sfxClick(); }
+  }),
+  levelUp !== null && React.createElement("div", { className: "pointer-events-none fixed inset-0 z-50 flex items-center justify-center" },
+    React.createElement("div", { className: "absolute inset-0", style: { background: "radial-gradient(circle, rgba(255,215,0,.35) 0%, transparent 60%)", animation: "levelFlash 2.4s ease-out forwards" } }),
+    React.createElement("div", { className: "text-center", style: { animation: "popIn .5s ease-out" } },
+      React.createElement("div", { className: "logoGold text-4xl font-bold sm:text-5xl", style: { letterSpacing: "0.2em" } }, "LEVEL UP!"),
+      React.createElement("div", { className: "mt-2 text-lg sm:text-xl", style: { color: "#fff7d8" } }, "Úroveň ", levelUp, " — jsi o krok blíž proměně!"))),
+  React.createElement("div", { className: "pointer-events-none fixed inset-0 z-50" },
+    particles.map(p => React.createElement("div", { key: p.id, style: { position: "absolute", left: p.x, top: p.y, width: p.size, height: p.size, background: p.color, boxShadow: "0 0 6px " + p.color, "--dx": p.dx, "--dy": p.dy, animation: "floatUp 1s ease-out forwards" } }))),
+  toast && React.createElement("div", { className: "panelD2 fixed bottom-6 left-1/2 z-40 w-[90%] max-w-md -translate-x-1/2 px-3 py-2 text-center text-[11px]", style: { animation: "popIn .25s ease-out" } }, toast),
+  invOpen && React.createElement(InvModal, { save: save, gear: gear, hero: hero, heroClass: heroClass, onEquip: equipItem, onClose: () => { setInvOpen(false); sfxClick(); } })];
+}
+function InvModal({ save, gear, hero, heroClass, onEquip, onClose }) {
+  return React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", style: { backgroundColor: "rgba(5,3,2,.88)" }, onClick: onClose },
+    React.createElement("div", { className: "panelD2 max-h-[85vh] w-full max-w-lg overflow-y-auto p-4", onClick: e => e.stopPropagation() },
+      React.createElement("div", { className: "mb-2 flex items-center justify-between" },
+        React.createElement("div", { className: "text-sm font-bold", style: { color: "#ffd700" } }, "Inventář · ", hero.name, " (", heroClass.name, ")"),
+        React.createElement("button", { onClick: onClose, className: "btnD2 px-2 py-0.5 text-xs", style: { color: "#8a7a5c" } }, "✕")),
+      React.createElement("div", { className: "grid grid-cols-2 gap-2" },
+        React.createElement("div", null,
+          React.createElement("div", { className: "mb-1 text-[10px] uppercase", style: { color: "#8a7a5c" } }, "Statistiky"),
+          React.createElement(Stat, { label: "Útok", value: gear.attack }),
+          React.createElement(Stat, { label: "Obrana", value: gear.defense }),
+          React.createElement(Stat, { label: "Víra (HP)", value: gear.maxHp }),
+          React.createElement(Stat, { label: "Kritický zásah", value: gear.crit + " %" }),
+          React.createElement(Stat, { label: "Gear skóre", value: gear.gearScore })),
+        React.createElement("div", null,
+          React.createElement("div", { className: "mb-1 text-[10px] uppercase", style: { color: "#8a7a5c" } }, "Předměty (" + save.inv.length + ")"),
+          save.inv.length === 0 && React.createElement("div", { className: "text-[10px]", style: { color: "#6b5f49" } }, "Zatím prázdno — plň činnosti!"),
+          save.inv.slice(-12).reverse().map(it => {
+            const rar = rarityOf(it.rarityId);
+            const isEq = Object.values(save.equip).indexOf(it.uid) >= 0;
+            return React.createElement("button", { key: it.uid, onClick: () => onEquip(it), className: "mb-1 flex w-full items-center gap-2 rounded border-2 px-2 py-1 text-left", style: { borderColor: isEq ? "#ffd700" : "#2a2018", background: "rgba(0,0,0,.3)" } },
+              React.createElement(PixelSprite, { rows: ICONS[it.icon] || ICONS.book, palette: iconPalette(it.color), scale: 1, style: { width: 20, height: 20 } }),
+              React.createElement("span", { className: "text-[9px]", style: { color: rar.color } }, it.name, isEq ? " · nasazeno" : ""));
+          })))));
 }
 function Stat({
   label,
@@ -2921,6 +2528,7 @@ function ChestModal({
     }
   }, "Na dal\u0161\xED t\xFDden! \u2694"))));
 }
+
 </script>
 <script>
 const __css = "/* Minimal Tailwind-style utilities for Perla Proměny (generated for the exact class list used) */\n*, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml, body, #root { height: 100%; }\nbody { font-family: \"Trebuchet MS\", \"Segoe UI\", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }\nbutton, input, select { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }\nbutton:disabled { cursor: not-allowed; }\nul, ol { list-style: none; }\nimg, canvas { display: block; }\n\n/* positioning */\n.absolute { position: absolute; }\n.fixed { position: fixed; }\n.relative { position: relative; }\n.inset-0 { top: 0; right: 0; bottom: 0; left: 0; }\n.top-0 { top: 0; }\n.top-1 { top: 4px; }\n.-top-1 { top: -4px; }\n.bottom-2 { bottom: 8px; }\n.bottom-6 { bottom: 24px; }\n.left-1\\/2 { left: 50%; }\n.right-1 { right: 4px; }\n.right-2 { right: 8px; }\n.-translate-x-1\\/2 { --tw-tx: -50%; transform: translateX(-50%); }\n.z-10 { z-index: 10; }\n.z-40 { z-index: 40; }\n.z-50 { z-index: 50; }\n.pointer-events-none { pointer-events: none; }\n.overflow-hidden { overflow: hidden; }\n.overflow-y-auto { overflow-y: auto; }\n.select-none { user-select: none; -webkit-user-select: none; }\n.outline-none { outline: none; }\n\n/* flex & grid */\n.flex { display: flex; }\n.flex-1 { flex: 1 1 0%; }\n.flex-col { flex-direction: column; }\n.flex-wrap { flex-wrap: wrap; }\n.items-center { align-items: center; }\n.items-end { align-items: flex-end; }\n.items-start { align-items: flex-start; }\n.justify-between { justify-content: space-between; }\n.justify-center { justify-content: center; }\n.shrink-0 { flex-shrink: 0; }\n.min-w-0 { min-width: 0; }\n.grid { display: grid; }\n.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }\n.gap-1 { gap: 4px; }\n.gap-2 { gap: 8px; }\n.gap-3 { gap: 12px; }\n\n/* spacing */\n.p-1 { padding: 4px; }\n.p-2 { padding: 8px; }\n.p-3 { padding: 12px; }\n.p-4 { padding: 16px; }\n.p-5 { padding: 20px; }\n.px-2 { padding-left: 8px; padding-right: 8px; }\n.px-3 { padding-left: 12px; padding-right: 12px; }\n.px-4 { padding-left: 16px; padding-right: 16px; }\n.px-5 { padding-left: 20px; padding-right: 20px; }\n.py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }\n.py-1 { padding-top: 4px; padding-bottom: 4px; }\n.py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }\n.py-2 { padding-top: 8px; padding-bottom: 8px; }\n.py-3 { padding-top: 12px; padding-bottom: 12px; }\n.py-6 { padding-top: 24px; padding-bottom: 24px; }\n.pb-3 { padding-bottom: 12px; }\n.pb-4 { padding-bottom: 16px; }\n.pl-4 { padding-left: 16px; }\n.pt-1 { padding-top: 4px; }\n.mt-0\\.5 { margin-top: 2px; }\n.mt-1 { margin-top: 4px; }\n.mt-2 { margin-top: 8px; }\n.mt-3 { margin-top: 12px; }\n.mt-4 { margin-top: 16px; }\n.mt-5 { margin-top: 20px; }\n.mb-0\\.5 { margin-bottom: 2px; }\n.mb-1 { margin-bottom: 4px; }\n.mb-2 { margin-bottom: 8px; }\n.mx-auto { margin-left: auto; margin-right: auto; }\n\n/* sizing */\n.h-2\\.5 { height: 10px; }\n.h-3 { height: 12px; }\n.h-3\\.5 { height: 14px; }\n.h-4 { height: 16px; }\n.h-5 { height: 20px; }\n.h-6 { height: 24px; }\n.h-11 { height: 44px; }\n.h-12 { height: 48px; }\n.h-28 { height: 112px; }\n.h-36 { height: 144px; }\n.h-40 { height: 160px; }\n.h-56 { height: 224px; }\n.h-\\[68px\\] { height: 68px; }\n.h-full { height: 100%; }\n.w-4 { width: 16px; }\n.w-11 { width: 44px; }\n.w-12 { width: 48px; }\n.w-20 { width: 80px; }\n.w-28 { width: 112px; }\n.w-\\[90\\%\\] { width: 90%; }\n.w-full { width: 100%; }\n.max-h-\\[92vh\\] { max-height: 92vh; }\n.max-h-\\[94vh\\] { max-height: 94vh; }\n.max-w-sm { max-width: 384px; }\n.max-w-md { max-width: 448px; }\n.max-w-xl { max-width: 576px; }\n.max-w-2xl { max-width: 672px; }\n.max-w-3xl { max-width: 768px; }\n\n/* typography */\n.font-bold { font-weight: 700; }\n.italic { font-style: italic; }\n.uppercase { text-transform: uppercase; }\n.tracking-wider { letter-spacing: 0.05em; }\n.tracking-widest { letter-spacing: 0.1em; }\n.leading-tight { line-height: 1.25; }\n.leading-snug { line-height: 1.375; }\n.text-left { text-align: left; }\n.text-center { text-align: center; }\n.list-disc { list-style-type: disc; }\n.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.text-\\[8px\\] { font-size: 8px; }\n.text-\\[9px\\] { font-size: 9px; }\n.text-\\[10px\\] { font-size: 10px; }\n.text-\\[11px\\] { font-size: 11px; }\n.text-xs { font-size: 12px; line-height: 1rem; }\n.text-sm { font-size: 14px; line-height: 1.25rem; }\n.text-base { font-size: 16px; line-height: 1.5rem; }\n.text-lg { font-size: 18px; line-height: 1.75rem; }\n.text-xl { font-size: 20px; line-height: 1.75rem; }\n.text-2xl { font-size: 24px; line-height: 2rem; }\n.text-4xl { font-size: 36px; line-height: 2.5rem; }\n\n/* borders, radius, colors, opacity */\n.border { border-width: 1px; border-style: solid; }\n.border-2 { border-width: 2px; border-style: solid; }\n.border-t { border-top-width: 1px; border-top-style: solid; }\n.rounded { border-radius: 4px; }\n.rounded-sm { border-radius: 2px; }\n.rounded-full { border-radius: 9999px; }\n.bg-black\\/80 { background-color: rgba(0,0,0,0.8); }\n.bg-black\\/85 { background-color: rgba(0,0,0,0.85); }\n.opacity-50 { opacity: 0.5; }\n.opacity-60 { opacity: 0.6; }\n\n/* variants */\n@media (min-width: 640px) {\n  .sm\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n  .sm\\:grid-cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }\n  .sm\\:h-64 { height: 256px; }\n  .sm\\:p-3 { padding: 12px; }\n  .sm\\:p-4 { padding: 16px; }\n  .sm\\:text-xs { font-size: 12px; line-height: 1rem; }\n  .sm\\:text-sm { font-size: 14px; line-height: 1.25rem; }\n  .sm\\:text-xl { font-size: 20px; line-height: 1.75rem; }\n  .sm\\:text-2xl { font-size: 24px; line-height: 2rem; }\n  .sm\\:text-3xl { font-size: 30px; line-height: 2.25rem; }\n  .sm\\:text-5xl { font-size: 48px; line-height: 1; }\n}\n@media (min-width: 1024px) {\n  .lg\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n}\n";
