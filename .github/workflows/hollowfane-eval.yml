@@ -99,7 +99,7 @@ jobs:
           cp build/windows/HOLLOWFANE.exe evalpkg/
           cp LICENSES.md evalpkg/
           cp LICENSE_SNAPSHOT.txt evalpkg/
-          cp evalrepo/.github/workflows-eval/TESTING.md evalpkg/
+          cp ../evalrepo/.github/workflows-eval/TESTING.md evalpkg/
           echo "HOLLOWFANE evaluation build" > evalpkg/BUILD_INFO.txt
           echo "Zdrojový commit: 8211bb739943d819a2910c9aedad6a706b6134cb (Ryvos/hollowfane v1.0.0)" >> evalpkg/BUILD_INFO.txt
           echo "Godot: 4.6.stable.official.89cea1439" >> evalpkg/BUILD_INFO.txt
