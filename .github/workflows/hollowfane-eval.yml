@@ -6,6 +6,8 @@ name: HOLLOWFANE Windows evaluation build
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [hollowfane-eval]
 
 permissions:
   contents: read
