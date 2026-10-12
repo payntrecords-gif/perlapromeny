@@ -1,0 +1,107 @@
+name: HOLLOWFANE Windows evaluation build
+
+# DOČASNÝ EVALUAČNÍ WORKFLOW — branch hollowfane-eval only.
+# Nezasahuje do produkce: neexportuje nic do Pages, nemodifikuje main ani HOLLOWFANE.
+# Checkoutuje PŘESNĚ commit 8211bb739943d819a2910c9aedad6a706b6134cb z upstream repa.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  eval-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout HOLLOWFANE na přesném commitu
+        uses: actions/checkout@v4
+        with:
+          repository: Ryvos/hollowfane
+          ref: 8211bb739943d819a2910c9aedad6a706b6134cb
+          path: hollowfane
+          fetch-depth: 1
+
+      - name: Ověřit SHA checkoutu
+        run: |
+          cd hollowfane
+          SHA=$(git rev-parse HEAD)
+          echo "Checked out: $SHA"
+          if [ "$SHA" != "8211bb739943d819a2910c9aedad6a706b6134cb" ]; then
+            echo "::error::SHA nesouhlasí! Očekáváno 8211bb7..., skutečnost $SHA"
+            exit 1
+          fi
+
+      - name: Stáhnout Godot 4.6
+        run: |
+          curl -sL -o godot.zip "https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          chmod +x Godot_v4.6-stable_linux.x86_64
+          ./Godot_v4.6-stable_linux.x86_64 --headless --version
+
+      - name: Stáhnout export templates 4.6
+        run: |
+          curl -sL -o templates.tpz "https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates/4.6.stable
+          unzip -q templates.tpz -d tpl
+          cp tpl/templates/* ~/.local/share/godot/export_templates/4.6.stable/
+
+      - name: Import projektu
+        run: |
+          cd hollowfane
+          ../Godot_v4.6-stable_linux.x86_64 --headless --import 2>&1 | tail -3
+
+      - name: License gate (povinný)
+        run: |
+          cd hollowfane
+          python3 tools/check_licenses.py
+          echo "LICENSE GATE: OK (exit 0)"
+
+      - name: Headless smoke test (bot-play harness, 60 s)
+        run: |
+          cd hollowfane
+          timeout 120 ../Godot_v4.6-stable_linux.x86_64 --headless res://tools/bot_main.tscn -- --duration=60 2>&1 | tee bot.log | tail -5
+          grep -q "clean run" bot.log || { echo "::error::Bot-play harness nedopadl čistě!"; exit 1; }
+          echo "SMOKE TEST: clean run, žádný crash"
+
+      - name: Licenční snapshot runtime assetů
+        run: |
+          cd hollowfane
+          echo "== Runtime-referencované assety (grep res://assets ze scén/skriptů) ==" > LICENSE_SNAPSHOT.txt
+          grep -rhoE "res://assets/[a-zA-Z0-9_/.-]+" scenes scripts project.godot 2>/dev/null | sort -u >> LICENSE_SNAPSHOT.txt || true
+          echo "" >> LICENSE_SNAPSHOT.txt
+          echo "== POZOR: Godot export PCK zahrnuje VŠECHNY soubory pod res:// ==" >> LICENSE_SNAPSHOT.txt
+          echo "Nepoužívané LPC assety (CC-BY-SA 3.0, vendored-only, runtime NEPOUŽÍVÁNÉ)" >> LICENSE_SNAPSHOT.txt
+          echo "jsou v PCK fyzicky přítomny (include_filter je prázdný)." >> LICENSE_SNAPSHOT.txt
+          echo "Licenční povinnosti jsou zachovány v přiloženém LICENSES.md." >> LICENSE_SNAPSHOT.txt
+          cat LICENSE_SNAPSHOT.txt
+
+      - name: Export Windows Desktop build
+        run: |
+          cd hollowfane
+          mkdir -p build/windows
+          ../Godot_v4.6-stable_linux.x86_64 --headless --export-release "Windows Desktop" build/windows/HOLLOWFANE.exe 2>&1 | tail -3
+          test -f build/windows/HOLLOWFANE.exe || { echo "::error::EXE chybí!"; exit 1; }
+          ls -la build/windows/
+
+      - name: Zabalit evaluation ZIP
+        run: |
+          cd hollowfane
+          mkdir -p evalpkg
+          cp build/windows/HOLLOWFANE.exe evalpkg/
+          cp LICENSES.md evalpkg/
+          cp LICENSE_SNAPSHOT.txt evalpkg/
+          cp ../.github/workflows-eval/TESTING.md evalpkg/ 2>/dev/null || true
+          echo "HOLLOWFANE evaluation build" > evalpkg/BUILD_INFO.txt
+          echo "Zdrojový commit: 8211bb739943d819a2910c9aedad6a706b6134cb (Ryvos/hollowfane v1.0.0)" >> evalpkg/BUILD_INFO.txt
+          echo "Godot: 4.6.stable.official.89cea1439" >> evalpkg/BUILD_INFO.txt
+          echo "Toto je NEUPRAVENÝ evaluation build — žádné přejmenování, žádná modifikace." >> evalpkg/BUILD_INFO.txt
+          cd evalpkg && zip -q ../HOLLOWFANE-eval-windows-x86_64.zip * && cd ..
+          ls -la HOLLOWFANE-eval-windows-x86_64.zip
+
+      - name: Upload evaluation ZIP artefaktu
+        uses: actions/upload-artifact@v4
+        with:
+          name: HOLLOWFANE-eval-windows-x86_64
+          path: hollowfane/HOLLOWFANE-eval-windows-x86_64.zip
+          retention-days: 14
