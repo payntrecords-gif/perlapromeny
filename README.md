@@ -4,16 +4,21 @@ Herní týden od pondělí do neděle. Každý den provádí hra hráče systém
 
 ## Co je ve hře
 
+- **„Dnes dokončeno: X činností · Aktivní oblasti: X ze 4"** — neutrální přehled bez zavádějícího pocitu, že musíš splnit všechno (celkový počet jen v detailu oblasti)
+
 - **Více činností za jeden den** — každý den můžeš splnit libovolný počet činností ve všech oblastech; den se automaticky neuzavírá po první činnosti
 - **Čtyři oblasti**: Označování · Život víry · Evangelizace · Pokání / Proměna (Deník proměny, Skutek proměny, Shimbang)
 - **Panel „Dnešní cesta"** — přehled oblastí, počet splněných činností, doporučený další krok
-- **Navigační šipka** — zlatý ukazatel na mapě směřuje k vybrané oblasti (tlačítko „Navést"); cíl mimo obrazovku → šipka na okraji s názvem a vzdáleností
+- **Oblasti na mapě** — čtyři místa se symbolem (kniha / světlo / plamen / perla), názvem a zlatým „navštíveno" bodem po první činnosti
+- **Navigace a přímý přístup** — 🧭 Navést (šipka na mapě), ➤ Přejít (okamžitý přesun k místu), ▤ Otevřít (rovnou panel činností) — nikdy nejsi nucen procházet prázdnou mapu
 - **Deník proměny** — tři otázky (vděčnost / boj / změna), průběžné automatické ukládání, stav Rozpracováno → Dokončeno; po uzavření dne je zápis jen ke čtení. Zápis se ukládá **pouze do tohoto zařízení** (localStorage)
 - **Sedm stavů Perly (ChangeON1–7)** — od tmavé perly s prasklinami po čistou zářící perlu; postup podle uzavřených dnů týdne
 - **Týdenní lišta dní** — aktuální den zvýrazněný („Dnes"), splněné ✓
 - **Ukončení dne** — ruční, se souhrnem (co je splněno / co zbývá) a potvrzením
-- **Volitelné souboje** — duchové na mapě jsou volitelná výzva; nikdy neblokují plnění činností, Deník ani dokončení dne
-- **Onboarding** — krátký průvodce po prvním spuštění (lze přeskočit, znovu spustit tlačítkem „?")
+- **Volitelné souboje (trénink)** — duchové na mapě nabízejí předvstupní kartu s jasným vysvětlením a odměnou; jde o trénink bez prohry, nikdy neblokují plnění činností, Deník ani dokončení dne
+- **Onboarding** — krátký průvodce po prvním spuštění (lze přeskočit, znovu spustit tlačítkem „? Nápověda")
+- **Týdenní přehled „Tento týden"** — panel 📅 se stavem každého dne (činnosti, oblasti, stav Deníku — nikdy osobní texty) a souhrnem týdenní cesty ChangeON
+- **Nastavení ⚙** — testovací režim a smazání dat (s dvojím potvrzením a jasným popisem, co se smaže) přesunuté z herní lišty
 
 ## Ovládání
 
