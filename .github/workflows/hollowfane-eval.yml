@@ -16,6 +16,14 @@ jobs:
   eval-build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout vlastní repo (pro TESTING.md)
+        uses: actions/checkout@v4
+        with:
+          ref: hollowfane-eval
+          path: evalrepo
+          sparse-checkout: |
+            .github/workflows-eval/
+
       - name: Checkout HOLLOWFANE na přesném commitu
         uses: actions/checkout@v4
         with:
@@ -93,7 +101,7 @@ jobs:
           cp build/windows/HOLLOWFANE.exe evalpkg/
           cp LICENSES.md evalpkg/
           cp LICENSE_SNAPSHOT.txt evalpkg/
-          cp ../.github/workflows-eval/TESTING.md evalpkg/ 2>/dev/null || true
+          cp evalrepo/.github/workflows-eval/TESTING.md evalpkg/
           echo "HOLLOWFANE evaluation build" > evalpkg/BUILD_INFO.txt
           echo "Zdrojový commit: 8211bb739943d819a2910c9aedad6a706b6134cb (Ryvos/hollowfane v1.0.0)" >> evalpkg/BUILD_INFO.txt
           echo "Godot: 4.6.stable.official.89cea1439" >> evalpkg/BUILD_INFO.txt
