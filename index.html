@@ -317,7 +317,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 })();
 </script>
 <script>const React=window.React, ReactDOM=window.ReactDOM;</script>
-<script>const {
+<script>
+const {
   useState,
   useEffect,
   useRef,
@@ -367,24 +368,53 @@ const CLASSES = [{
   id: "war",
   name: "Bojovník víry",
   glyph: "⚔️",
-  desc: "Bojuje dobrou bitvu víry.",
+  desc: "Bojuje dobrou bitvu víry. Silné útoky, krátké cooldowny.",
   bonusCat: "pokani",
   bonusText: "+10 % XP: Pokání / Proměna"
 }, {
+  id: "paladin",
+  name: "Paladin Slova",
+  glyph: "🛡️",
+  desc: "Vytrvalý strážce — rychle se léčí, slabší útok.",
+  bonusCat: "ozn",
+  bonusText: "+10 % XP: Označování"
+}, {
   id: "pilgrim",
   name: "Poutník Slova",
-  glyph: "🥾",
-  desc: "Kráčí cestou slova den za dnem.",
+  glyph: "📿",
+  desc: "Kráčí cestou slova den za dnem. Vyšší energie víry.",
   bonusCat: "ozn",
   bonusText: "+10 % XP: Označování"
 }, {
   id: "guardian",
   name: "Strážce Perly",
-  glyph: "🛡️",
-  desc: "Střeží perlu, dokud nezařívá.",
+  glyph: "🗡️",
+  desc: "Střeží perlu, dokud nezařívá. Kritické zásahy.",
   bonusCat: "evang",
   bonusText: "+10 % XP: Evangelizace"
+}, {
+  id: "prophet",
+  name: "Prorok Zjevení",
+  glyph: "📖",
+  desc: "Mluví s autoritou — mocná dovednost, nižší HP.",
+  bonusCat: "evang",
+  bonusText: "+10 % XP: Evangelizace"
+}, {
+  id: "intercessor",
+  name: "Zastánce v modlitbě",
+  glyph: "🙏",
+  desc: "Stojí ve spojení — silná modlitba, skupinová podpora.",
+  bonusCat: "vira",
+  bonusText: "+10 % XP: Život víry"
 }];
+const CLASS_SKILLS = {
+  war: { name: "Meč Ducha", glyph: "⚡", cost: 30, power: 2.2, color: "#ffd700" },
+  paladin: { name: "Svatá aura", glyph: "🌟", cost: 35, power: 1.6, color: "#fff7d8" },
+  pilgrim: { name: "Cesta Slova", glyph: "📜", cost: 25, power: 1.8, color: "#a78bfa" },
+  guardian: { name: "Ochrana perly", glyph: "🛡️", cost: 30, power: 1.9, color: "#4ade80" },
+  prophet: { name: "Trubka Zjevení", glyph: "📢", cost: 45, power: 2.8, color: "#60a5fa" },
+  intercessor: { name: "Přímluva", glyph: "🕯️", cost: 20, power: 1.5, color: "#f5a524" }
+};
 const ENEMIES = [{
   name: "Duch Lenosti",
   color: "#7d9b76",
@@ -651,7 +681,7 @@ function withGear(cls) {
     let w = ".";
     if (cls === "war" && i >= 6 && i <= 13) w = "w";
     if (cls === "pilgrim" && i >= 3 && i <= 13) w = "w";
-    if (cls === "guardian" && (i === 7 || i === 8)) w = "p";
+    if (cls === "guardian" && (i === 7 || i === 8)) w = "p"; if (cls === "paladin" && i >= 6 && i <= 13) w = "w"; if (cls === "prophet" && i >= 3 && i <= 13) w = "w"; if (cls === "intercessor" && (i === 7 || i === 8)) w = "p";
     return cape + r + w;
   });
 }
@@ -664,12 +694,12 @@ function walkFrame(rows) {
 const HERO_SPRITES = {
   war: withGear("war"),
   pilgrim: withGear("pilgrim"),
-  guardian: withGear("guardian")
+  guardian: withGear("guardian"), paladin: withGear("paladin"), prophet: withGear("prophet"), intercessor: withGear("intercessor")
 };
 const HERO_WALK = {
   war: walkFrame(HERO_SPRITES.war),
   pilgrim: walkFrame(HERO_SPRITES.pilgrim),
-  guardian: walkFrame(HERO_SPRITES.guardian)
+  guardian: walkFrame(HERO_SPRITES.guardian), paladin: walkFrame(HERO_SPRITES.paladin), prophet: walkFrame(HERO_SPRITES.prophet), intercessor: walkFrame(HERO_SPRITES.intercessor)
 };
 const HERO_PALETTES = {
   war: {
@@ -710,7 +740,10 @@ const HERO_PALETTES = {
     w: "#c3d5e8",
     p: "#ffffff",
     c: "#12293f"
-  }
+  },
+  paladin: { h: "#c9a227", f: "#e8b98a", e: "#ffd700", r: "#b8860b", R: "#7a5a10", b: "#fff7d8", s: "#d8d8d8", t: "#3c2b1a", w: "#e8e8e8", p: "#ffffff", c: "#4a3a08" },
+  prophet: { h: "#5b3a8a", f: "#e8b98a", e: "#c4b5fd", r: "#6d4a9e", R: "#4a3268", b: "#d8a94a", s: "#8b7355", t: "#2c2440", w: "#a58963", p: "#ffffff", c: "#2a1e3f" },
+  intercessor: { h: "#7a5a10", f: "#e8b98a", e: "#fff7d8", r: "#9a7a1a", R: "#5c480c", b: "#ffe98a", s: "#c9b458", t: "#3c2b1a", w: "#e8d9a0", p: "#ffffff", c: "#3a2c0c" }
 };
 function hexLerp(a, b, t) {
   const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
@@ -978,9 +1011,7 @@ const sfxVictory = () => [392, 523, 659, 784, 1046].forEach((f, i) => tone(f, i 
    ============================================================ */
 
 const TILE = 32;
-const MAP_W = 20;
-const MAP_H = 14;
-const MAP_ROWS = ["tttttttttttttttttttt", "tgggggggssspppppgggt", "tgggfgggssspppppgggt", "tgpppppppppppppppggt", "tggggggggggggggggggt", "tgpggggggggggggggpgt", "tggggtgggggggggtgggt", "tgpgggggggggggggpggt", "tggggggggggggggggggt", "tggggtgggggggggtgggt", "tgpppppppppppppppggt", "tgwwwggfffgggggggggt", "tggwfggggfgggggfgggt", "tttttttttttttttttttt"];
+const MAP_W = 48;const MAP_H = 34;const MAP_ROWS = (() => {  const W = MAP_W, H = MAP_H;  const g = [];  for (let y = 0; y < H; y++) {    const row = [];    for (let x = 0; x < W; x++) row.push("g");    g.push(row);  }  const set = (x, y, ch) => {    if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = ch;  };  const rnd = (seed => () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)(1337);  for (let x = 0; x < W; x++) { set(x, 0, "t"); set(x, H - 1, "t"); }  for (let y = 0; y < H; y++) { set(0, y, "t"); set(W - 1, y, "t"); }  for (let x = 0; x < W; x++) {    if ((x * 7 + 3) % 5 === 0) set(x, 1, "t");    if ((x * 5 + 1) % 4 === 0) set(x, H - 2, "t");  }  for (let y = 0; y < H; y++) {    if ((y * 9 + 2) % 5 === 0) set(1, y, "t");    if ((y * 11 + 4) % 5 === 0) set(W - 2, y, "t");  }  const sx = Math.floor(W / 2) - 2, sy = Math.floor(H / 2) - 1;  for (let y = sy; y < sy + 3; y++) for (let x = sx; x < sx + 5; x++) set(x, y, "s");  for (let y = 2; y < H - 2; y++) {    const cx = Math.floor(W / 2);    if (y < sy || y >= sy + 3) set(cx, y, "p");  }  for (let x = 3; x < W - 3; x++) {    const cy = Math.floor(H / 2);    if (x < sx || x >= sx + 5) set(x, cy, "p");  }  for (let x = 4; x < W - 4; x++) {    set(x, 3, "p"); set(x, H - 4, "p");  }  for (let y = 3; y < H - 3; y++) {    set(4, y, "p"); set(W - 5, y, "p");  }  for (let i = 1; i <= 3; i++) {    const yy = Math.floor(H / 4) * i + 1;    for (let x = 5; x < Math.floor(W / 2) - 3; x++) set(x, yy, "p");    for (let x = Math.floor(W / 2) + 3; x < W - 5; x++) set(x, yy, "p");  }  const lakes = [[10, 6, 5, 3], [33, 9, 5, 3], [8, 26, 4, 3], [36, 25, 5, 3]];  lakes.forEach(([lx, ly, lw, lh]) => {    for (let y = ly; y < ly + lh; y++) for (let x = lx; x < lx + lw; x++) set(x, y, "w");  });  for (let i = 0; i < 130; i++) {    const x = 2 + Math.floor(rnd() * (W - 4));    const y = 2 + Math.floor(rnd() * (H - 4));    if (g[y][x] === "g") {      const r = rnd();      if (r < 0.5) set(x, y, "t"); else if (r < 0.75) set(x, y, "f");    }  }  const path = [];  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === "p" || g[y][x] === "s") path.push([x, y]);  path.forEach(([x, y]) => {    [[0,1],[0,-1],[1,0],[-1,0],[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([dx,dy]) => {      const nx = x + dx, ny = y + dy;      if (nx > 0 && nx < W - 1 && ny > 0 && ny < H - 1 && g[ny][nx] === "t") g[ny][nx] = "g";    });  });  return g.map(r => r.join(""));})();
 function tileAt(x, y) {
   if (y < 0 || y >= MAP_H || x < 0 || x >= MAP_W) return "t";
   const row = MAP_ROWS[y];
@@ -996,234 +1027,175 @@ function drawText(ctx, text, x, y, color) {
   ctx.fillText(text, x, y);
 }
 
-/* Statické pozadí mapy — nakreslí se jednou */
+/* Statick\u00e9 pozad\u00ed mapy \u2014 nakresl\u00ed se jednou */const TORCH_POS = (() => {
+  const out = [];
+  const sx = Math.floor(MAP_W / 2) - 3, sy = Math.floor(MAP_H / 2) - 2;
+  out.push([sx, sy], [sx + 6, sy], [sx, sy + 4], [sx + 6, sy + 4]);
+  out.push([4, 2], [MAP_W - 5, 2], [4, MAP_H - 3], [MAP_W - 5, MAP_H - 3]);
+  return out;
+})();
 function buildBackground() {
   const cv = document.createElement("canvas");
   cv.width = TILE * MAP_W;
   cv.height = TILE * MAP_H;
   const ctx = cv.getContext("2d");
   if (!ctx) return cv;
-  const S = 2; // velikost logického pixelu
-
-  const fill = (x, y, w, h, c) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, w * S, h * S);
+  const S = 2;
+  const fill = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w * S, h * S); };
+  const hsh = (x, y) => {
+    let h = (x * 374761393 + y * 668265263) % 65536;
+    h = (h ^ h >> 7) * 2654435761 % 65536;
+    return (h & 65535) / 65535;
   };
   const drawGrass = (tx, ty) => {
-    const px = tx * TILE,
-      py = ty * TILE;
-    const h = (tx * 31 + ty * 17) % 7;
-    fill(px, py, 16, 16, h < 2 ? "#33502a" : "#3a5f2a");
-    // trsy trávy
-    for (let i = 0; i < 5; i++) {
-      const gx = (tx * 13 + i * 29) % 13 + 1;
-      const gy = (ty * 7 + i * 19) % 13 + 1;
-      fill(px + gx * S, py + gy * S, 1, 2, i % 2 ? "#2c451f" : "#4a7a38");
+    const px = tx * TILE, py = ty * TILE;
+    const base = hsh(tx, ty);
+    const c = base < 0.33 ? "#22331d" : base < 0.66 ? "#26381f" : "#2a3d22";
+    fill(px, py, 16, 16, c);
+    for (let i = 0; i < 30; i++) {
+      const dx = Math.floor(hsh(tx * 31 + i, ty * 17) * 16);
+      const dy = Math.floor(hsh(tx * 13, ty * 29 + i) * 16);
+      const v = hsh(tx + i * 7, ty + i * 3);
+      if (v < 0.4) fill(px + dx * S, py + dy * S, 1, 1, "#1c2a17");
+      else if (v < 0.55) fill(px + dx * S, py + dy * S, 1, 1, "#33482a");
     }
-    if (h === 3) fill(px + 4 * S, py + 11 * S, 2, 1, "#57914830");
+    for (let i = 0; i < 4; i++) {
+      const gx = Math.floor(hsh(tx * 13 + i * 41, ty) * 14) + 1;
+      const gy = Math.floor(hsh(tx, ty * 7 + i * 23) * 14) + 1;
+      fill(px + gx * S, py + gy * S, 1, 2, i % 2 ? "#182312" : "#3d5a30");
+    }
   };
   const drawFlowers = (tx, ty) => {
-    const px = tx * TILE,
-      py = ty * TILE;
-    const cols = ["#f5efe0", "#ffd166", "#e06a6a"];
-    for (let i = 0; i < 3; i++) {
-      const fx = (tx * 11 + i * 37) % 11 + 2;
-      const fy = (ty * 23 + i * 13) % 11 + 2;
-      const c = cols[(tx + ty + i) % 3];
-      fill(px + fx * S, py + (fy + 1) * S, 1, 2, "#2c451f");
+    const px = tx * TILE, py = ty * TILE;
+    const cols = ["#c9b458", "#a8543a", "#7d6a9b"];
+    for (let i = 0; i < 2; i++) {
+      const fx = Math.floor(hsh(tx * 11 + i * 5, ty * 3) * 12) + 2;
+      const fy = Math.floor(hsh(tx * 3, ty * 23 + i * 7) * 12) + 2;
+      const c = cols[Math.floor(hsh(tx + ty + i, i) * 3)];
+      fill(px + fx * S, py + (fy + 1) * S, 1, 2, "#182312");
       fill(px + (fx - 1) * S, py + fy * S, 3, 1, c);
-      fill(px + fx * S, py + (fy - 1) * S, 1, 1, "#ffd166");
+      fill(px + fx * S, py + (fy - 1) * S, 1, 1, "#e8d9a0");
     }
   };
   const drawPath = (tx, ty) => {
-    const px = tx * TILE,
-      py = ty * TILE;
-    const h = (tx * 31 + ty * 17) % 7;
-    fill(px, py, 16, 16, h < 2 ? "#84703d" : "#8a713f");
-    // kameny
-    for (let i = 0; i < 3; i++) {
-      const sx = (tx * 17 + i * 31) % 12 + 1;
-      const sy = (ty * 29 + i * 11) % 12 + 1;
-      fill(px + sx * S, py + sy * S, 3, 2, "#9c8352");
-      fill(px + sx * S, py + (sy + 2) * S, 3, 1, "#6e5c33");
+    const px = tx * TILE, py = ty * TILE;
+    const base = hsh(tx, ty);
+    fill(px, py, 16, 16, base < 0.5 ? "#4a3d28" : "#503f2a");
+    for (let i = 0; i < 5; i++) {
+      const sx2 = Math.floor(hsh(tx * 17 + i * 3, ty * 5) * 12) + 1;
+      const sy2 = Math.floor(hsh(tx * 5, ty * 29 + i * 11) * 12) + 1;
+      const w2 = 2 + Math.floor(hsh(tx + i, ty) * 3);
+      const dark = hsh(tx * 3 + i, ty * 7) < 0.5;
+      fill(px + sx2 * S, py + sy2 * S, w2, 2, dark ? "#3a2f1e" : "#5c4a32");
+      fill(px + sx2 * S, py + (sy2 + 2) * S, w2, 1, "#241b10");
     }
-    // přechod k trávě (dither)
-    if (tileAt(tx, ty - 1) === "g" || tileAt(tx, ty - 1) === "f" || tileAt(tx, ty - 1) === "t") {
-      for (let x = 0; x < 16; x += 2) if ((x / 2 + ty) % 2 === 0) fill(px + x * S, py, 1, 1, tileAt(tx, ty - 1) === "t" ? "#33502a" : "#3a5f2a");
+    if (tileAt(tx, ty - 1) === "g" || tileAt(tx, ty - 1) === "f") {
+      for (let x = 0; x < 16; x += 2) if ((x / 2 + ty) % 2 === 0) fill(px + x * S, py, 1, 1, "#26381f");
     }
     if (tileAt(tx, ty + 1) === "g" || tileAt(tx, ty + 1) === "f") {
-      for (let x = 1; x < 16; x += 2) if ((x / 2 + ty) % 2 === 0) fill(px + x * S, py + 15 * S, 1, 1, "#3a5f2a");
+      for (let x = 1; x < 16; x += 2) if ((x / 2 + ty) % 2 === 0) fill(px + x * S, py + 15 * S, 1, 1, "#26381f");
     }
     if (tileAt(tx - 1, ty) === "g" || tileAt(tx - 1, ty) === "f") {
-      for (let y = 0; y < 16; y += 2) if ((y / 2 + tx) % 2 === 0) fill(px, py + y * S, 1, 1, "#3a5f2a");
+      for (let y = 0; y < 16; y += 2) if ((y / 2 + tx) % 2 === 0) fill(px, py + y * S, 1, 1, "#26381f");
     }
     if (tileAt(tx + 1, ty) === "g" || tileAt(tx + 1, ty) === "f") {
-      for (let y = 1; y < 16; y += 2) if ((y / 2 + tx) % 2 === 0) fill(px + 15 * S, py + y * S, 1, 1, "#3a5f2a");
+      for (let y = 1; y < 16; y += 2) if ((y / 2 + tx) % 2 === 0) fill(px + 15 * S, py + y * S, 1, 1, "#26381f");
     }
   };
   const drawTree = (tx, ty) => {
-    const px = tx * TILE,
-      py = ty * TILE;
-    fill(px, py, 16, 16, "#2c451f");
-    // kmen
-    fill(px + 6 * S, py + 20, 4 * S, 12 * S, "#5a4632");
-    fill(px + 7 * S, py + 20, 2 * S, 12 * S, "#6e5a44");
-    // koruna — tři patva
-    fill(px + 2 * S, py + 2 * S, 12 * S, 16 * S, "#1e4222");
-    fill(px + 3 * S, py + 0, 10 * S, 5 * S, "#1e4222");
-    fill(px + 3 * S, py + 3 * S, 10 * S, 13 * S, "#274d29");
-    fill(px + 4 * S, py + 1 * S, 7 * S, 5 * S, "#33612f");
-    // světelné skvrny
-    fill(px + 5 * S, py + 2 * S, 3 * S, 2 * S, "#3f7a38");
-    fill(px + 9 * S, py + 6 * S, 2 * S, 2 * S, "#3f7a38");
-    fill(px + 5 * S, py + 9 * S, 2 * S, 1 * S, "#173618");
-    // tmavé očko
-    fill(px + 10 * S, py + 11 * S, 2 * S, 2 * S, "#173618");
+    const px = tx * TILE, py = ty * TILE;
+    fill(px, py, 16, 16, "#1c2a17");
+    fill(px + 6 * S, py + 10 * S, 4 * S, 6 * S, "#3a2c1c");
+    fill(px + 7 * S, py + 10 * S, 2 * S, 6 * S, "#4a3a26");
+    fill(px + 2 * S, py + 1 * S, 12 * S, 9 * S, "#142410");
+    fill(px + 3 * S, py + 0, 10 * S, 4 * S, "#142410");
+    fill(px + 3 * S, py + 2 * S, 10 * S, 7 * S, "#1d3319");
+    fill(px + 4 * S, py + 1 * S, 7 * S, 4 * S, "#28421f");
+    fill(px + 5 * S, py + 2 * S, 3 * S, 2 * S, "#33502a");
+    fill(px + 9 * S, py + 5 * S, 2 * S, 2 * S, "#33502a");
+    fill(px + 5 * S, py + 7 * S, 2 * S, 1 * S, "#0e1a0c");
+    fill(px + 10 * S, py + 8 * S, 2 * S, 2 * S, "#0e1a0c");
   };
   const drawWater = (tx, ty) => {
-    const px = tx * TILE,
-      py = ty * TILE;
-    fill(px, py, 16, 16, "#1a4a6e");
-    fill(px, py, 16, 2, "#255a80");
-    // okraj — písčitý břeh
-    if (tileAt(tx, ty - 1) !== "w") fill(px, py, 16, 1, "#8a713f");
-    if (tileAt(tx, ty + 1) !== "w") fill(px, py + 15 * S, 16, 1, "#8a713f");
-    if (tileAt(tx - 1, ty) !== "w") fill(px, py, 1, 16, "#8a713f");
-    if (tileAt(tx + 1, ty) !== "w") fill(px + 15 * S, py, 1, 16, "#8a713f");
-    fill(px + 2 * S, py + 5 * S, 4 * S, 1, "#2a6ea0");
-    fill(px + 9 * S, py + 9 * S, 4 * S, 1, "#2a6ea0");
-    fill(px + 5 * S, py + 12 * S, 3 * S, 1, "#2a6ea0");
+    const px = tx * TILE, py = ty * TILE;
+    fill(px, py, 16, 16, "#0e2438");
+    fill(px, py, 16, 2, "#16324c");
+    if (tileAt(tx, ty - 1) !== "w") fill(px, py, 16, 1, "#3a2f1e");
+    if (tileAt(tx, ty + 1) !== "w") fill(px, py + 15 * S, 16, 1, "#3a2f1e");
+    if (tileAt(tx - 1, ty) !== "w") fill(px, py, 1, 16, "#3a2f1e");
+    if (tileAt(tx + 1, ty) !== "w") fill(px + 15 * S, py, 1, 16, "#3a2f1e");
+    fill(px + 2 * S, py + 5 * S, 4 * S, 1, "#1e4260");
+    fill(px + 9 * S, py + 9 * S, 4 * S, 1, "#1e4260");
+    fill(px + 5 * S, py + 12 * S, 3 * S, 1, "#1e4260");
   };
   const drawSanctuary = () => {
-    // schody
-    fill(7 * TILE + 2 * S, 3 * TILE - 2 * S, 18 * S, 2 * S, "#8d8579");
-    fill(7 * TILE + 4 * S, 3 * TILE - 1 * S, 14 * S, 1 * S, "#6b6357");
-    // zeď — cihly
-    fill(8 * TILE - 2 * S, 1 * TILE + 14, 18 * S, 2 * TILE - 14, "#8d8579");
-    ctx.fillStyle = "#6b6357";
-    for (let y = 1 * TILE + 20; y < 3 * TILE; y += 8) {
-      ctx.fillRect(8 * TILE - 4, y, 18 * S + 8, 2);
-    }
-    for (let y = 1 * TILE + 20, row = 0; y < 3 * TILE - 4; y += 8, row++) {
-      for (let x = 8 * TILE - 4 + (row % 2 ? 4 : 10); x < 12 * TILE + 4; x += 16) {
-        ctx.fillRect(x, y, 2, 8);
+    const sx = Math.floor(MAP_W / 2) - 2, sy = Math.floor(MAP_H / 2) - 1;
+    const px = sx * TILE, py = sy * TILE;
+    const W2 = 5 * TILE, H2 = 3 * TILE;
+    for (let y = 0; y < 3; y++) for (let x = 0; x < 5; x++) {
+      const v = hsh(x + 100, y + 100);
+      fill(px + x * TILE, py + y * TILE, 16, 16, v < 0.5 ? "#55504a" : "#5c5750");
+      for (let i = 0; i < 6; i++) {
+        const dx = Math.floor(hsh(x * 31 + i, y * 17) * 16);
+        const dy = Math.floor(hsh(x * 13, y * 29 + i) * 16);
+        fill(px + x * TILE + dx * S, py + y * TILE + dy * S, 1, 1, hsh(x + i, y) < 0.5 ? "#46423c" : "#666158");
       }
     }
-    // sloupy
-    fill(8 * TILE - 2 * S, 1 * TILE + 14, 2 * S, 2 * TILE - 14, "#a39a8c");
-    fill(8 * TILE - 2 * S, 1 * TILE + 14, 1 * S, 2 * TILE - 14, "#bdb4a6");
-    fill(12 * TILE - 4 * S, 1 * TILE + 14, 2 * S, 2 * TILE - 14, "#a39a8c");
-    fill(12 * TILE - 3 * S, 1 * TILE + 14, 1 * S, 2 * TILE - 14, "#bdb4a6");
-    // dveře (arkáda)
-    fill(9 * TILE + 8, 2 * TILE, 3 * TILE - 16, TILE, "#241a10");
-    fill(9 * TILE + 12, 2 * TILE - 8, 3 * TILE - 24, 8, "#241a10");
-    fill(9 * TILE + 8, 2 * TILE, 4, TILE, "#d8a94a");
-    fill(12 * TILE - 12, 2 * TILE, 4, TILE, "#d8a94a");
-    // střecha — stupňovitá
-    const roofX = 8 * TILE - 8,
-      roofW = 4 * TILE + 16;
-    const steps = [{
-      y: 1 * TILE - 26,
-      w: roofW - 56,
-      x: roofX + 28
-    }, {
-      y: 1 * TILE - 18,
-      w: roofW - 36,
-      x: roofX + 18
-    }, {
-      y: 1 * TILE - 10,
-      w: roofW - 16,
-      x: roofX + 8
-    }, {
-      y: 1 * TILE - 4,
-      w: roofW,
-      x: roofX
-    }];
-    steps.forEach(st => {
-      fill(st.x, st.y, st.w, 8, "#c7a44a");
-      fill(st.x, st.y + 6, st.w, 2, "#8a6d2f");
-      fill(st.x, st.y, st.w, 2, "#e8c05a");
-    });
-    // kříž
-    fill(10 * TILE - 6, 1 * TILE - 44, 12, 18, "#ffd700");
-    fill(10 * TILE - 14, 1 * TILE - 38, 28, 8, "#ffd700");
-    fill(10 * TILE - 6, 1 * TILE - 44, 12, 4, "#fff7d8");
+    const cx = px + W2 / 2, cy = py + H2 / 2;
+    ctx.strokeStyle = "#d8a94a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    fill(cx - 4, cy - 26, 8, 18, "#ffd700");
+    fill(cx - 14, cy - 18, 28, 8, "#ffd700");
+    fill(cx - 4, cy - 26, 8, 4, "#fff7d8");
   };
   for (let ty = 0; ty < MAP_H; ty++) {
     for (let tx = 0; tx < MAP_W; tx++) {
       const ch = MAP_ROWS[ty][tx];
-      if (ch === "g") drawGrass(tx, ty);else if (ch === "f") {
-        drawGrass(tx, ty);
-        drawFlowers(tx, ty);
-      } else if (ch === "p") drawPath(tx, ty);else if (ch === "t") drawTree(tx, ty);else if (ch === "w") drawWater(tx, ty);else if (ch === "s") drawPath(tx, ty);
+      if (ch === "g") drawGrass(tx, ty);
+      else if (ch === "f") { drawGrass(tx, ty); drawFlowers(tx, ty); }
+      else if (ch === "p") drawPath(tx, ty);
+      else if (ch === "t") drawTree(tx, ty);
+      else if (ch === "w") drawWater(tx, ty);
+      else if (ch === "s") { }
+      else drawGrass(tx, ty);
     }
   }
   drawSanctuary();
-
-  // vinětace
-  const grad = ctx.createRadialGradient(cv.width / 2, cv.height / 2 - 30, 120, cv.width / 2, cv.height / 2, 520);
+  const grad = ctx.createRadialGradient(cv.width / 2, cv.height / 2, 80, cv.width / 2, cv.height / 2, 720);
   grad.addColorStop(0, "rgba(0,0,0,0)");
-  grad.addColorStop(1, "rgba(0,0,0,0.42)");
+  grad.addColorStop(1, "rgba(0,0,0,0.55)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, cv.width, cv.height);
   return cv;
 }
-function MapView({
-  heroCls,
-  heroPal,
-  entities,
-  shine,
-  paused,
-  onEntity,
-  onSanctuary
-}) {
+
+function MapView({ heroCls, heroPal, entities, shine, paused, onEntity, onSanctuary }) {
   const canvasRef = useRef(null);
-  const heroRef = useRef({
-    x: 9,
-    y: 3,
-    px: 9 * TILE,
-    py: 3 * TILE,
-    moving: false,
-    fromX: 9,
-    fromY: 3,
-    start: 0
-  });
+  const wrapRef = useRef(null);
+  const heroRef = useRef({ x: Math.floor(MAP_W / 2), y: Math.floor(MAP_H / 2) + 3, px: Math.floor(MAP_W / 2) * TILE, py: (Math.floor(MAP_H / 2) + 3) * TILE, moving: false, fromX: Math.floor(MAP_W / 2), fromY: Math.floor(MAP_H / 2) + 3, start: 0, dir: 0 });
   const entRef = useRef(entities);
   const pausedRef = useRef(paused);
-  const cbRef = useRef({
-    onEntity,
-    onSanctuary
-  });
+  const cbRef = useRef({ onEntity, onSanctuary });
   const palRef = useRef(heroPal);
   const shineRef = useRef(shine);
   const bgRef = useRef(null);
-  const motesRef = useRef(Array.from({
-    length: 16
-  }, () => ({
-    x: Math.random() * (TILE * MAP_W),
-    y: 40 + Math.random() * 340,
-    sp: 0.008 + Math.random() * 0.03,
-    ph: Math.random() * 6.28,
-    s: Math.random() < 0.3 ? 3 : 2
-  })));
-  useEffect(() => {
-    entRef.current = entities;
-  }, [entities]);
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-  useEffect(() => {
-    palRef.current = heroPal;
-  }, [heroPal]);
-  useEffect(() => {
-    shineRef.current = shine;
-  }, [shine]);
-  useEffect(() => {
-    cbRef.current = {
-      onEntity,
-      onSanctuary
-    };
-  });
+  const camRef = useRef({ x: 0, y: 0 });
+  const VIEW_W = 20;
+  const VIEW_H = 13;
+  const motesRef = useRef(Array.from({ length: 14 }, () => ({ x: Math.random() * (TILE * VIEW_W), y: 20 + Math.random() * 260, sp: 0.008 + Math.random() * 0.03, ph: Math.random() * 6.28, s: Math.random() < 0.3 ? 3 : 2 })));
+  useEffect(() => { entRef.current = entities; }, [entities]);
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
+  useEffect(() => { palRef.current = heroPal; }, [heroPal]);
+  useEffect(() => { shineRef.current = shine; }, [shine]);
+  useEffect(() => { cbRef.current = { onEntity, onSanctuary }; });
   const tryStep = useCallback((dx, dy) => {
     if (pausedRef.current) return;
     const hs = heroRef.current;
@@ -1232,16 +1204,9 @@ function MapView({
     const ny = hs.y + dy;
     if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return;
     const ent = entRef.current.find(e => e.x === nx && e.y === ny);
-    if (ent) {
-      sfxLocked();
-      cbRef.current.onEntity(ent.dayIdx);
-      return;
-    }
+    if (ent) { sfxLocked(); cbRef.current.onEntity(ent.dayIdx); return; }
     const ch = tileAt(nx, ny);
-    if (ch === "s") {
-      cbRef.current.onSanctuary();
-      return;
-    }
+    if (ch === "s") { cbRef.current.onSanctuary(); return; }
     if (!walkable(ch)) return;
     hs.moving = true;
     hs.fromX = hs.x;
@@ -1249,24 +1214,16 @@ function MapView({
     hs.x = nx;
     hs.y = ny;
     hs.start = performance.now();
+    hs.dir = dx > 0 ? 1 : dx < 0 ? -1 : 0;
     sfxStep();
   }, []);
   useEffect(() => {
     const onKey = e => {
       const k = e.key.toLowerCase();
-      if (k === "arrowup" || k === "w") {
-        e.preventDefault();
-        tryStep(0, -1);
-      } else if (k === "arrowdown" || k === "s") {
-        e.preventDefault();
-        tryStep(0, 1);
-      } else if (k === "arrowleft" || k === "a") {
-        e.preventDefault();
-        tryStep(-1, 0);
-      } else if (k === "arrowright" || k === "d") {
-        e.preventDefault();
-        tryStep(1, 0);
-      }
+      if (k === "arrowup" || k === "w") { e.preventDefault(); tryStep(0, -1); }
+      else if (k === "arrowdown" || k === "s") { e.preventDefault(); tryStep(0, 1); }
+      else if (k === "arrowleft" || k === "a") { e.preventDefault(); tryStep(-1, 0); }
+      else if (k === "arrowright" || k === "d") { e.preventDefault(); tryStep(1, 0); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1278,100 +1235,99 @@ function MapView({
     if (!ctx) return;
     if (!bgRef.current) bgRef.current = buildBackground();
     let raf = 0;
-    const W = TILE * MAP_W;
-    const H = TILE * MAP_H;
-    const drawWaterAnim = t => {
-      const S = 2;
-      ctx.fillStyle = "#7ec8ff";
-      const wave = (x, y) => {
-        const a = 0.35 + 0.25 * Math.sin(t / 350 + x * 0.7 + y);
-        ctx.globalAlpha = a;
-        ctx.fillRect(x * TILE + (t / 60 | 0) % 20 * S, y * TILE + 6 * S, 4 * S, S);
-        ctx.globalAlpha = a * 0.7;
-        ctx.fillRect(x * TILE + 10 * S - (t / 80 | 0) % 24 * S, y * TILE + 11 * S, 3 * S, S);
-        ctx.globalAlpha = 1;
-      };
-      wave(2, 11);
-      wave(3, 11);
-      wave(4, 11);
-      wave(3, 12);
+    const CW = TILE * VIEW_W;
+    const CH = TILE * VIEW_H;
+    const clampCam = (cx, cy) => {
+      const maxX = TILE * MAP_W - CW;
+      const maxY = TILE * MAP_H - CH;
+      return { x: Math.max(0, Math.min(maxX, cx)), y: Math.max(0, Math.min(maxY, cy)) };
     };
-    const drawSanctuaryGlow = t => {
+    const drawTorches = (t, camx, camy) => {
+      TORCH_POS.forEach(([tx, ty], i) => {
+        const px = tx * TILE - camx;
+        const py = ty * TILE - camy;
+        if (px < -TILE || px > CW || py < -TILE || py > CH) return;
+        const flick = 0.85 + 0.15 * Math.sin(t / 120 + i * 2.1) * Math.cos(t / 300 + i);
+        ctx.fillStyle = "#3a2c1c";
+        ctx.fillRect(px + 6, py + 4, 4, 14);
+        ctx.fillStyle = "#5c4a24";
+        ctx.fillRect(px + 7, py + 4, 2, 14);
+        ctx.fillStyle = "#e05b1f";
+        ctx.beginPath();
+        ctx.arc(px + 8, py + 2, 5 * flick, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffc14d";
+        ctx.beginPath();
+        ctx.arc(px + 8, py + 1, 3 * flick, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff7d8";
+        ctx.beginPath();
+        ctx.arc(px + 8, py + 1, 1.5 * flick, 0, Math.PI * 2);
+        ctx.fill();
+        const g = ctx.createRadialGradient(px + 8, py + 2, 4, px + 8, py + 2, 46);
+        g.addColorStop(0, "rgba(255,180,80," + (0.28 * flick) + ")");
+        g.addColorStop(1, "rgba(255,140,40,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(px + 8, py + 2, 46, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    };
+    const drawSanctuaryGlow = (t, camx, camy) => {
       const sh = shineRef.current;
+      const scx = Math.floor(MAP_W / 2) * TILE + TILE * 2 - camx;
+      const scy = Math.floor(MAP_H / 2) * TILE + TILE - camy;
       const pulse = 0.5 + 0.3 * Math.sin(t / 700);
-      // paprsky od kříže
-      ctx.globalAlpha = 0.06 + 0.04 * pulse;
+      ctx.globalAlpha = 0.05 + sh * 0.22 + 0.03 * pulse;
       ctx.fillStyle = "#ffe9a8";
       ctx.beginPath();
-      ctx.moveTo(10 * TILE, 1 * TILE - 40);
-      ctx.lineTo(9 * TILE - 10, 3 * TILE + 20);
-      ctx.lineTo(9 * TILE + 40, 3 * TILE + 20);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(10 * TILE, 1 * TILE - 40);
-      ctx.lineTo(11 * TILE - 40, 3 * TILE + 20);
-      ctx.lineTo(11 * TILE + 10, 3 * TILE + 20);
-      ctx.closePath();
-      ctx.fill();
-      // zář celé svatyně
-      ctx.globalAlpha = 0.05 + sh * 0.22 + 0.03 * pulse;
-      ctx.beginPath();
-      ctx.arc(10 * TILE, 2 * TILE, 120, 0, Math.PI * 2);
+      ctx.arc(scx, scy, 70, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
     };
-    const drawShadow = (cx, cy, rx) => {
+    const drawShadow = (cx2, cy2, rx) => {
       ctx.fillStyle = "rgba(0,0,0,0.4)";
       ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, rx * 0.38, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx2, cy2, rx, rx * 0.38, 0, 0, Math.PI * 2);
       ctx.fill();
     };
-    const drawEntity = (e, t) => {
-      const px = e.x * TILE;
-      const py = e.y * TILE;
+    const drawEntity = (e, t, camx, camy) => {
+      const px = e.x * TILE - camx;
+      const py = e.y * TILE - camy;
+      if (px < -TILE || px > CW || py < -TILE || py > CH) return;
       const bob = Math.sin(t / 300 + e.dayIdx) * 2.5;
-      const cx = px + TILE / 2;
+      const cx2 = px + TILE / 2;
       if (e.state === "done") {
-        drawShadow(cx, py + 28, 11);
-        drawSpriteOutlined(ctx, ALTAR_ROWS, {
-          P: "#fff7d8",
-          W: "#ffffff",
-          B: "#8a7355",
-          G: "#ffd700"
-        }, px + 3, py + 4, 2);
+        drawShadow(cx2, py + 28, 11);
+        drawSpriteOutlined(ctx, ALTAR_ROWS, { P: "#fff7d8", W: "#ffffff", B: "#8a7355", G: "#ffd700" }, px + 3, py + 4, 2);
         for (let i = 0; i < 3; i++) {
           const a = t / 400 + i * Math.PI * 2 / 3;
           ctx.fillStyle = "#ffd700";
           ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t / 250 + i);
-          ctx.fillRect(cx + Math.cos(a) * 13, py + 2 + Math.sin(a) * 7, 3, 3);
+          ctx.fillRect(cx2 + Math.cos(a) * 13, py + 2 + Math.sin(a) * 7, 3, 3);
           ctx.globalAlpha = 1;
         }
-        drawText(ctx, DAY_SHORT[e.dayIdx], cx, py - 3, "#7dd87d");
+        drawText(ctx, DAY_SHORT[e.dayIdx], cx2, py - 3, "#7dd87d");
       } else if (e.state === "locked") {
-        drawShadow(cx, py + 28, 10);
-        drawSpriteOutlined(ctx, GATE_ROWS, {
-          B: "#5a5a5a",
-          K: "#2a2a2a"
-        }, px + 3, py + 5, 2);
-        drawText(ctx, DAY_SHORT[e.dayIdx], cx, py - 3, "#8a8a8a");
+        drawShadow(cx2, py + 28, 10);
+        drawSpriteOutlined(ctx, GATE_ROWS, { B: "#5a5a5a", K: "#2a2a2a" }, px + 3, py + 5, 2);
+        drawText(ctx, DAY_SHORT[e.dayIdx], cx2, py - 3, "#8a8a8a");
       } else {
         const en = ENEMIES[e.dayIdx];
         const pal = ghostPalette(en.color, en.boss);
         const rows = en.boss ? BOSS_ROWS : GHOST_ROWS;
         const alpha = e.state === "missed" ? 0.3 : 1;
-        if (e.state !== "missed") drawShadow(cx, py + 30, 11);
-        // aura dnešního
+        if (e.state !== "missed") drawShadow(cx2, py + 30, 11);
         if (e.state === "today" || e.state === "open") {
           const pulse = 0.45 + Math.sin(t / 250) * 0.3;
           ctx.strokeStyle = "rgba(255,215,0," + pulse + ")";
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(cx, py + TILE / 2, 20 + Math.sin(t / 250) * 3, 0, Math.PI * 2);
+          ctx.arc(cx2, py + TILE / 2, 20 + Math.sin(t / 250) * 3, 0, Math.PI * 2);
           ctx.stroke();
           ctx.strokeStyle = "rgba(255,180,60," + pulse * 0.4 + ")";
           ctx.beginPath();
-          ctx.arc(cx, py + TILE / 2, 27 + Math.sin(t / 250 + 1) * 3, t / 600, t / 600 + 4.4);
+          ctx.arc(cx2, py + TILE / 2, 27 + Math.sin(t / 250 + 1) * 3, t / 600, t / 600 + 4.4);
           ctx.stroke();
         }
         ctx.globalAlpha = alpha;
@@ -1381,14 +1337,14 @@ function MapView({
           const ay = py - 20 + Math.sin(t / 200) * 3;
           ctx.fillStyle = "#ffd700";
           ctx.beginPath();
-          ctx.moveTo(cx - 5, ay);
-          ctx.lineTo(cx + 5, ay);
-          ctx.lineTo(cx, ay + 7);
+          ctx.moveTo(cx2 - 5, ay);
+          ctx.lineTo(cx2 + 5, ay);
+          ctx.lineTo(cx2, ay + 7);
           ctx.closePath();
           ctx.fill();
-          drawText(ctx, "⚔ " + DAY_SHORT[e.dayIdx] + (e.state === "today" ? " DNEŠEK" : " OTEVŘENO"), cx, py - 26, "#ffd700");
+          drawText(ctx, "⚔ " + DAY_SHORT[e.dayIdx] + (e.state === "today" ? " DNEŠEK" : " OTEVŘENO"), cx2, py - 26, "#ffd700");
         } else {
-          drawText(ctx, DAY_SHORT[e.dayIdx] + " zmeškáno", cx, py - 6, "#a25555");
+          drawText(ctx, DAY_SHORT[e.dayIdx] + " zmeškáno", cx2, py - 6, "#a25555");
         }
       }
     };
@@ -1400,145 +1356,65 @@ function MapView({
         hs.py = (hs.fromY + (hs.y - hs.fromY) * k) * TILE;
         if (k >= 1) hs.moving = false;
       }
-      if (bgRef.current) ctx.drawImage(bgRef.current, 0, 0);
-      drawWaterAnim(t);
-      drawSanctuaryGlow(t);
-      entRef.current.forEach(e => drawEntity(e, t));
-      // hrdina
+      const target = clampCam(hs.px - TILE * VIEW_W / 2 + TILE / 2, hs.py - TILE * VIEW_H / 2 + TILE / 2);
+      const cam = camRef.current;
+      cam.x += (target.x - cam.x) * 0.12;
+      cam.y += (target.y - cam.y) * 0.12;
+      const camx = Math.round(cam.x);
+      const camy = Math.round(cam.y);
+      ctx.fillStyle = "#0c0907";
+      ctx.fillRect(0, 0, CW, CH);
+      if (bgRef.current) ctx.drawImage(bgRef.current, camx, camy, CW, CH, 0, 0, CW, CH);
+      drawSanctuaryGlow(t, camx, camy);
+      entRef.current.forEach(e => drawEntity(e, t, camx, camy));
       const bob = Math.sin(t / 260) * 1.5;
       const frame = hs.moving && Math.floor(t / 130) % 2 === 1 ? HERO_WALK[heroCls] || HERO_SPRITES[heroCls] : HERO_SPRITES[heroCls];
-      drawShadow(hs.px + 16, hs.py + 30, 11);
-      drawSpriteOutlined(ctx, frame, palRef.current, hs.px - 2, hs.py - 5 + bob, 2);
-      // světlušky
+      drawShadow(hs.px - camx + 16, hs.py - camy + 30, 11);
+      drawSpriteOutlined(ctx, frame, palRef.current, hs.px - camx - 2, hs.py - camy - 5 + bob, 2);
       motesRef.current.forEach(m => {
         const yy = m.y + Math.sin(t / 900 + m.ph) * 14;
-        const xx = (m.x + t * m.sp) % W;
+        const xx = (m.x + t * m.sp) % CW;
         ctx.globalAlpha = 0.18 + 0.18 * Math.sin(t / 400 + m.ph);
         ctx.fillStyle = yy % 3 < 1 ? "#ffd700" : "#fff7d8";
         ctx.fillRect(xx, yy, m.s, m.s);
         ctx.globalAlpha = 1;
       });
+      drawTorches(t, camx, camy);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [heroCls]);
+  const onTapCanvas = e => {
+    if (pausedRef.current) return;
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const rect = cv.getBoundingClientRect();
+    const scale = (TILE * VIEW_W) / rect.width;
+    const mx = (e.clientX - rect.left) * scale + camRef.current.x;
+    const my = (e.clientY - rect.top) * scale + camRef.current.y;
+    const tx = Math.floor(mx / TILE);
+    const ty = Math.floor(my / TILE);
+    const hs = heroRef.current;
+    const dx = tx - hs.x;
+    const dy = ty - hs.y;
+    if (Math.abs(dx) + Math.abs(dy) === 0) return;
+    if (Math.abs(dx) > Math.abs(dy)) tryStep(Math.sign(dx), 0);
+    else tryStep(0, Math.sign(dy));
+  };
   const dpadBtn = (label, dx, dy) => /*#__PURE__*/React.createElement("button", {
-    onPointerDown: e => {
-      e.preventDefault();
-      tryStep(dx, dy);
-    },
-    className: "btnD2 flex h-12 w-12 select-none items-center justify-center text-lg font-bold"
+    onPointerDown: e => { e.preventDefault(); tryStep(dx, dy); },
+    className: "btnD2 flex h-11 w-11 select-none items-center justify-center text-lg font-bold"
   }, label);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col items-center gap-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mx-auto w-full",
-    style: {
-      maxWidth: TILE * MAP_W
-    }
-  }, /*#__PURE__*/React.createElement("canvas", {
-    ref: canvasRef,
-    width: TILE * MAP_W,
-    height: TILE * MAP_H,
-    className: "w-full rounded",
-    style: {
-      imageRendering: "pixelated",
-      border: "2px solid #3a2c1c",
-      boxShadow: "0 0 0 2px #0d0906, 0 6px 24px rgba(0,0,0,.7)",
-      background: "#0c0907"
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-center gap-1"
-  }, /*#__PURE__*/React.createElement("div", null, dpadBtn("◀", -1, 0)), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-col gap-1"
-  }, dpadBtn("▲", 0, -1), dpadBtn("▼", 0, 1)), /*#__PURE__*/React.createElement("div", null, dpadBtn("▶", 1, 0))), /*#__PURE__*/React.createElement("div", {
-    className: "text-center text-[10px]",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, "Ch\u016Fze: \u0161ipky / WASD nebo tla\u010D\xEDtka. Dojdi ke sv\xEDt\xEDc\xEDmu nep\u0159\xEDteli \u2694 \u2014 tv\xE9mu \xFAkolu dne. Svatyn\u011B ti obnov\xED s\xEDlu."));
+  return /*#__PURE__*/React.createElement("div", { className: "flex flex-col items-center gap-2" },
+    /*#__PURE__*/React.createElement("div", { ref: wrapRef, className: "mx-auto w-full", style: { maxWidth: TILE * VIEW_W } },
+      /*#__PURE__*/React.createElement("canvas", { ref: canvasRef, width: TILE * VIEW_W, height: TILE * VIEW_H, onPointerDown: onTapCanvas, className: "w-full rounded", style: { imageRendering: "pixelated", border: "2px solid #3a2c1c", boxShadow: "0 0 0 2px #0d0906, 0 6px 24px rgba(0,0,0,.7)", background: "#0c0907", touchAction: "none" } })),
+    /*#__PURE__*/React.createElement("div", { className: "flex items-center justify-center gap-1" },
+      /*#__PURE__*/React.createElement("div", null, dpadBtn("◀", -1, 0)),
+      /*#__PURE__*/React.createElement("div", { className: "flex flex-col gap-1" }, dpadBtn("▲", 0, -1), dpadBtn("▼", 0, 1)),
+      /*#__PURE__*/React.createElement("div", null, dpadBtn("▶", 1, 0))),
+    /*#__PURE__*/React.createElement("div", { className: "text-center text-[10px]", style: { color: "#8a7a5c" } }, "Klepní na mapu pro krok, nebo použij šipky / tlačítka. Dojdi ke svítícímu nepříteli ⚔ — tvému úkolu dne. Svatyně ti obnoví sílu."));
 }
-
-/* ============================================================
-   SDÍLENÝ UI STYL — D2 kámen a zlato
-   ============================================================ */
-
-const SHARED_CSS = `
-@keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-@keyframes floatUp { 0%{opacity:1;transform:translate(0,0) scale(1)} 100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)} }
-@keyframes popIn { 0%{transform:scale(.6);opacity:0} 60%{transform:scale(1.07)} 100%{transform:scale(1);opacity:1} }
-@keyframes levelFlash { 0%{opacity:.85} 100%{opacity:0} }
-@keyframes glowPulse { 0%,100%{filter:drop-shadow(0 0 6px rgba(255,215,0,.35))} 50%{filter:drop-shadow(0 0 16px rgba(255,215,0,.7))} }
-@keyframes xpFloat { 0%{opacity:0;transform:translateY(10px)} 20%{opacity:1} 100%{opacity:0;transform:translateY(-46px)} }
-@keyframes shimmer { 0%,100%{opacity:.5} 50%{opacity:1} }
-@keyframes shakeX { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} }
-@keyframes dmgPop { 0%{opacity:0;transform:translateY(6px) scale(.7)} 20%{opacity:1;transform:translateY(0) scale(1.15)} 100%{opacity:0;transform:translateY(-40px) scale(1)} }
-@keyframes flick { from { transform: scaleY(1); } to { transform: scaleY(1.3) scaleX(.85); } }
-@keyframes slashIn { from{opacity:1; transform:rotate(-80deg) scale(1.35)} to{opacity:0; transform:rotate(-10deg) scale(.9)} }
-.daybtn { transition: transform .12s ease, filter .12s ease; }
-.daybtn:hover:not(:disabled) { transform: translateY(-3px); filter: brightness(1.12); }
-.daybtn:active:not(:disabled) { transform: translateY(1px); }
-.panelD2 {
-  background: linear-gradient(180deg,#1c150e 0%,#120c08 100%);
-  border: 2px solid #0d0906;
-  box-shadow: inset 0 0 0 2px #3a2c1c, inset 0 0 0 3px #0d0906, inset 0 2px 0 rgba(216,169,74,.18), 0 6px 18px rgba(0,0,0,.6);
-  border-radius: 6px;
-}
-.btnD2 {
-  background: linear-gradient(180deg,#3a2c14 0%,#1a120a 100%);
-  border: 2px solid #0d0906;
-  box-shadow: inset 0 0 0 1px #5c4a24, inset 0 2px 0 rgba(216,169,74,.25), inset 0 -2px 0 rgba(0,0,0,.5), 0 3px 0 #050302, 0 5px 10px rgba(0,0,0,.55);
-  color: #e8c05a;
-  border-radius: 5px;
-  letter-spacing: .05em;
-}
-.btnD2:hover { filter: brightness(1.2); }
-.btnD2:active { transform: translateY(2px); box-shadow: inset 0 0 0 1px #5c4a24, 0 1px 0 #050302; }
-.btnD2:disabled { opacity: .45; filter: grayscale(.5); }
-.logoGold {
-  color: #ffe9a8;
-  text-shadow: 0 1px 0 #b8860b, 0 2px 0 #8a6d2f, 0 3px 0 #3a2c1c, 0 4px 8px rgba(0,0,0,.9), 0 0 22px rgba(255,180,60,.55);
-}
-.xpfill { background: linear-gradient(90deg,#8a6d2f,#f5d76e); position:relative; overflow:hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 10px rgba(245,215,110,.5); }
-.xpfill::after { content:""; position:absolute; inset:0; background: repeating-linear-gradient(90deg, transparent 0 9px, rgba(0,0,0,.25) 9px 11px); }
-.arena {
-  border: 2px solid #3a2c1c;
-  border-radius: 8px;
-  background: radial-gradient(ellipse at 50% 115%, #2a1c10 0%, #14100a 55%, #0c0907 100%);
-  box-shadow: inset 0 0 0 2px #0d0906, 0 6px 20px rgba(0,0,0,.7);
-}
-.arenaFloor { position:absolute; inset:0; background: repeating-linear-gradient(90deg, rgba(0,0,0,.16) 0 2px, transparent 2px 34px); pointer-events:none; }
-.torch { position:absolute; width:8px; height:24px; background:linear-gradient(180deg,#5c4a24,#2a1c10); border-radius:3px; }
-.torchflame {
-  position:absolute; left:-4px; top:-15px; width:16px; height:18px;
-  background: radial-gradient(circle at 50% 65%, #fff7d8 0%, #ffc14d 45%, #e05b1f 75%, rgba(224,91,31,0) 80%);
-  border-radius:50%;
-  animation: flick .45s ease-in-out infinite alternate;
-  filter: drop-shadow(0 0 8px #ff9b2f);
-}
-.slash {
-  position:absolute; width:110px; height:110px; left:56%; top:24%;
-  border:8px solid transparent; border-top-color:#ffffff; border-right-color:#ffe98a;
-  border-radius:50%; pointer-events:none;
-  filter: drop-shadow(0 0 8px #ffd700);
-  animation: slashIn .2s ease-out forwards;
-}
-.shadowPad { background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.5) 0%, transparent 70%); }
-`;
-const gold = {
-  color: "#d8a94a"
-};
-const d2font = {
-  fontFamily: "'Courier New', monospace",
-  letterSpacing: "0.08em"
-};
-let particleId = 0;
-
-/* ============================================================
-   APP
-   ============================================================ */
-
 function App() {
   const [save, setSave] = useState(loadSave);
   const [testMode, setTestMode] = useState(false);
@@ -2665,311 +2541,150 @@ function EncounterModal({
    Modal: bitva
    ============================================================ */
 
-function BattleModal({
-  battle,
-  gear,
-  heroCls,
-  heroPal,
-  onComplete,
-  spawnParticles,
-  onClose
-}) {
+function BattleModal({ battle, gear, heroCls, heroPal, onComplete, spawnParticles, onClose }) {
   const enemy = ENEMIES[battle.dayIdx];
   const cat = CATEGORIES.find(c => c.id === battle.catId) || CATEGORIES[0];
+  const skill = CLASS_SKILLS[heroCls] || CLASS_SKILLS.war;
   const [enemyHp, setEnemyHp] = useState(enemy.hp);
   const [heroHp, setHeroHp] = useState(gear.maxHp);
+  const [faith, setFaith] = useState(100);
   const [phase, setPhase] = useState("intro");
   const [pops, setPops] = useState([]);
   const [shakeSide, setShakeSide] = useState(null);
   const [slash, setSlash] = useState(false);
   const [log, setLog] = useState([enemy.name + ": " + enemy.taunt]);
   const [reward, setReward] = useState(null);
-  const startedRef = useRef(false);
+  const [enemyCharging, setEnemyCharging] = useState(false);
+  const [cooldowns, setCooldowns] = useState({ atk: 0, skill: 0, pray: 0 });
+  const [comboCount, setComboCount] = useState(0);
+  const eHpRef = useRef(enemy.hp);
+  const hHpRef = useRef(gear.maxHp);
+  const faithRef = useRef(100);
+  const cdRef = useRef({ atk: 0, skill: 0, pray: 0 });
+  const comboRef = useRef(0);
+  const busyRef = useRef(false);
+  const timerRef = useRef(null);
+  const doneRef = useRef(false);
+  useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
   function addPop(text, color, side, crit) {
     const id = particleId++;
-    setPops(p => [...p, {
-      id,
-      text,
-      color,
-      side,
-      crit
-    }]);
+    setPops(p => [...p, { id, text, color, side, crit }]);
     window.setTimeout(() => setPops(p => p.filter(q => q.id !== id)), 950);
   }
-  function addLog(line) {
-    setLog(l => [line, ...l].slice(0, 5));
+  function addLog(line) { setLog(l => [line, ...l].slice(0, 5)); }
+  function setCd(name, ms) {
+    cdRef.current[name] = performance.now() + ms;
+    setCooldowns(c => ({ ...c, [name]: cdRef.current[name] }));
   }
-  async function runBattle() {
-    setPhase("fight");
-    const tasks = battle.tasks;
-    let eHp = enemy.hp;
-    let hHp = gear.maxHp;
-    for (let i = 0; i < tasks.length; i++) {
-      await sleep(420);
-      const crit = Math.random() * 100 < gear.crit;
-      const dmg = Math.max(4, Math.round(gear.attack * (1.4 + Math.random() * 0.5) * (crit ? 2 : 1)));
-      eHp = Math.max(0, eHp - dmg);
-      setEnemyHp(eHp);
-      setShakeSide("enemy");
-      setSlash(true);
-      addPop("-" + dmg, crit ? "#ffd700" : "#ffffff", "enemy", crit);
-      addLog((crit ? "💥 KRITICKÝ ZÁSAH! " : "⚔ ") + cat.tasks[i] + " → " + dmg + " dmg");
-      if (crit) sfxCrit();else sfxHit();
-      window.setTimeout(() => setShakeSide(null), 300);
-      window.setTimeout(() => setSlash(false), 220);
-      if (eHp <= 0) break;
-      await sleep(420);
-      const eDmg = Math.max(4, Math.round(enemy.atk * (0.8 + Math.random() * 0.4) - gear.defense * 0.4));
-      hHp = Math.max(1, hHp - eDmg);
-      setHeroHp(hHp);
-      setShakeSide("hero");
-      addPop("-" + eDmg, "#ff6644", "hero");
-      addLog(enemy.name + " útočí → " + eDmg + " dmg");
-      sfxEnemyHit();
-      window.setTimeout(() => setShakeSide(null), 300);
-    }
-    if (eHp > 0) {
-      if (battle.bonus.trim()) {
-        await sleep(380);
-        hHp = Math.min(gear.maxHp, hHp + 30);
-        setHeroHp(hHp);
-        addPop("+30", "#7dd87d", "hero");
-        addLog("✨ Perla se rozzářila — +30 víry!");
-        sfxBonus();
-        await sleep(380);
-      }
-      let guard = 0;
-      while (eHp > 0 && guard < 12) {
-        guard++;
-        await sleep(420);
-        const dmg = Math.max(4, Math.round(gear.attack * (0.7 + Math.random() * 0.3)));
-        eHp = Math.max(0, eHp - dmg);
-        setEnemyHp(eHp);
-        setShakeSide("enemy");
-        setSlash(true);
-        addPop("-" + dmg, "#ffffff", "enemy");
-        addLog("⚔ Vytrvalost víry → " + dmg + " dmg");
-        sfxHit();
-        window.setTimeout(() => setShakeSide(null), 300);
-        window.setTimeout(() => setSlash(false), 220);
-        if (eHp > 0) {
-          await sleep(380);
-          const eDmg = Math.max(4, Math.round(enemy.atk * (0.8 + Math.random() * 0.4) - gear.defense * 0.4));
-          hHp = Math.max(1, hHp - eDmg);
-          setHeroHp(hHp);
-          setShakeSide("hero");
-          addPop("-" + eDmg, "#ff6644", "hero");
-          sfxEnemyHit();
-          window.setTimeout(() => setShakeSide(null), 300);
-        }
-      }
-    }
-    await sleep(500);
-    const rw = onComplete();
-    setReward(rw);
+  const cdReady = name => performance.now() >= (cooldowns[name] || 0);
+  function enemyAttack() {
+    if (doneRef.current) return;
+    const eDmg = Math.max(4, Math.round(enemy.atk * (0.8 + Math.random() * 0.4) * (enemyCharging ? 1.5 : 1) - gear.defense * 0.4));
+    hHpRef.current = Math.max(1, hHpRef.current - eDmg);
+    setHeroHp(hHpRef.current);
+    setShakeSide("hero");
+    addPop("-" + eDmg, "#ff6644", "hero");
+    addLog(enemy.name + " útočí → " + eDmg + " dmg");
+    sfxEnemyHit();
+    setEnemyCharging(false);
+    window.setTimeout(() => setShakeSide(null), 300);
+    if (hHpRef.current <= 1) addLog("Víra téměř vyhasíná… modli se!");
+  }
+  function scheduleEnemy() {
+    if (doneRef.current) return;
+    const delay = 1500 + Math.random() * 1200;
+    timerRef.current = window.setTimeout(() => {
+      if (doneRef.current) return;
+      setEnemyCharging(true);
+      addLog("⚠ " + enemy.name + " se chystá zaútočit!");
+      timerRef.current = window.setTimeout(enemyAttack, 800);
+    }, delay);
+  }
+  function finishBattle() {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    if (timerRef.current) window.clearTimeout(timerRef.current);
     setPhase("victory");
     sfxVictory();
     sfxComplete();
+    const rw = onComplete();
+    setReward(rw);
     sfxLoot(RARITIES.findIndex(r => r.id === (rw ? rw.item.rarityId : "common")));
     spawnParticles(window.innerWidth / 2, window.innerHeight / 2.2, [cat.color, "#ffd700", "#fff7d8", enemy.color], 36);
   }
+  function doAttack() {
+    if (busyRef.current || doneRef.current || !cdReady("atk")) return;
+    busyRef.current = true;
+    const crit = Math.random() * 100 < gear.crit + comboRef.current * 3;
+    const comboBonus = 1 + Math.min(comboRef.current, 5) * 0.08;
+    let dmg = Math.max(4, Math.round(gear.attack * (1.2 + Math.random() * 0.4) * comboBonus * (crit ? 2 : 1)));
+    eHpRef.current = Math.max(0, eHpRef.current - dmg);
+    setEnemyHp(eHpRef.current);
+    setShakeSide("enemy");
+    setSlash(true);
+    comboRef.current++;
+    setComboCount(comboRef.current);
+    addPop("-" + dmg, crit ? "#ffd700" : "#ffffff", "enemy", crit);
+    addLog((crit ? "💥 KRITICKÝ ZÁSAH! " : "⚔ ") + "Útok víry → " + dmg + " dmg" + (comboRef.current > 2 ? " (combo ×" + comboRef.current + ")" : ""));
+    if (crit) sfxCrit(); else sfxHit();
+    setCd("atk", 650);
+    window.setTimeout(() => setShakeSide(null), 300);
+    window.setTimeout(() => setSlash(false), 220);
+    if (eHpRef.current <= 0) { window.setTimeout(finishBattle, 500); busyRef.current = false; return; }
+    window.setTimeout(() => { busyRef.current = false; scheduleEnemy(); }, 300);
+  }
+  function doSkill() {
+    if (busyRef.current || doneRef.current || !cdReady("skill")) return;
+    if (faithRef.current < skill.cost) { addLog("Nedostatek víry pro " + skill.name + "!"); return; }
+    busyRef.current = true;
+    faithRef.current = Math.max(0, faithRef.current - skill.cost);
+    setFaith(faithRef.current);
+    let dmg = Math.max(6, Math.round(gear.attack * skill.power * (0.9 + Math.random() * 0.3)));
+    eHpRef.current = Math.max(0, eHpRef.current - dmg);
+    setEnemyHp(eHpRef.current);
+    setShakeSide("enemy");
+    setSlash(true);
+    addPop("-" + dmg, skill.color, "enemy", true);
+    addLog("✨ " + skill.name + " → " + dmg + " dmg");
+    sfxBonus();
+    comboRef.current = 0;
+    setComboCount(0);
+    if (enemyCharging) { setEnemyCharging(false); addLog(enemy.name + " byl vyveden z rovnováhy!"); if (timerRef.current) window.clearTimeout(timerRef.current); }
+    setCd("skill", 4000);
+    window.setTimeout(() => setShakeSide(null), 300);
+    window.setTimeout(() => setSlash(false), 220);
+    if (eHpRef.current <= 0) { window.setTimeout(finishBattle, 500); busyRef.current = false; return; }
+    window.setTimeout(() => { busyRef.current = false; scheduleEnemy(); }, 300);
+  }
+  function doPray() {
+    if (busyRef.current || doneRef.current || !cdReady("pray")) return;
+    busyRef.current = true;
+    const heal = Math.round(gear.maxHp * 0.25);
+    hHpRef.current = Math.min(gear.maxHp, hHpRef.current + heal);
+    faithRef.current = Math.min(100, faithRef.current + 40);
+    setHeroHp(hHpRef.current);
+    setFaith(faithRef.current);
+    addPop("+" + heal, "#7dd87d", "hero");
+    addLog("🙏 Modlitba → +" + heal + " víry, +40 víry energie");
+    sfxBonus();
+    comboRef.current = 0;
+    setComboCount(0);
+    setCd("pray", 6000);
+    window.setTimeout(() => { busyRef.current = false; scheduleEnemy(); }, 300);
+  }
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
     const t = window.setTimeout(() => {
-      runBattle();
-    }, 900);
+      setPhase("fight");
+      scheduleEnemy();
+    }, 1400);
     return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const rar = reward ? rarityOf(reward.item.rarityId) : null;
-  return /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-40 flex items-center justify-center bg-black/85 p-2 sm:p-3"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "panelD2 max-h-[94vh] w-full max-w-xl overflow-y-auto p-4",
-    style: {
-      animation: "popIn .3s ease-out"
-    }
-  }, /*#__PURE__*/React.createElement("style", null, SHARED_CSS), /*#__PURE__*/React.createElement("div", {
-    className: "text-center text-sm font-bold",
-    style: {
-      color: phase === "victory" ? "#ffd700" : "#d8c9a3"
-    }
-  }, phase === "victory" ? "🏆 VÍTĚZSTVÍ!" : "⚔ Bitva — " + DAY_NAMES[battle.dayIdx]), /*#__PURE__*/React.createElement("div", {
-    className: "arena relative mt-3 flex h-56 items-end justify-between overflow-hidden px-4 pb-4 sm:h-64"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "arenaFloor"
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "torch",
-    style: {
-      left: 14,
-      top: 26
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "torchflame"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "torch",
-    style: {
-      right: 14,
-      top: 26
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "torchflame"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "z-10 flex flex-col items-center gap-1"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-3 w-28 overflow-hidden rounded-sm border-2",
-    style: {
-      borderColor: "#0d0906",
-      background: "#100a06"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-full",
-    style: {
-      width: heroHp / gear.maxHp * 100 + "%",
-      background: "linear-gradient(90deg,#7a1f1f,#e05b4b)"
-    }
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-[8px]",
-    style: {
-      color: "#ff8866"
-    }
-  }, "V\xEDra ", heroHp, "/", gear.maxHp), /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "shadowPad h-5 w-20"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      animation: shakeSide === "hero" ? "shakeX .3s ease" : "none"
-    }
-  }, /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: HERO_SPRITES[heroCls],
-    palette: heroPal,
-    scale: 5,
-    outline: true,
-    style: {
-      animation: shakeSide === "hero" ? "none" : "bob 1.2s ease-in-out infinite",
-      filter: shakeSide === "hero" ? "brightness(2.4) saturate(.5)" : "none"
-    }
-  })))), /*#__PURE__*/React.createElement("div", {
-    className: "z-10 flex flex-col items-center gap-1"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-3 w-28 overflow-hidden rounded-sm border-2",
-    style: {
-      borderColor: "#0d0906",
-      background: "#100a06"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "h-full",
-    style: {
-      width: enemyHp / enemy.hp * 100 + "%",
-      background: "linear-gradient(90deg,#5c1d1c," + enemy.color + ")"
-    }
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "text-[8px]",
-    style: {
-      color: "#ff8866"
-    }
-  }, enemy.name, " ", enemyHp, "/", enemy.hp), /*#__PURE__*/React.createElement("div", {
-    className: "relative"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "shadowPad h-5 w-20"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      animation: shakeSide === "enemy" ? "shakeX .3s ease" : "none",
-      opacity: phase === "victory" ? 0.12 : 1,
-      transition: "opacity .8s"
-    }
-  }, /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: enemy.boss ? BOSS_ROWS : GHOST_ROWS,
-    palette: ghostPalette(enemy.color, enemy.boss),
-    scale: enemy.boss ? 5 : 4,
-    outline: true,
-    style: {
-      animation: shakeSide === "enemy" ? "none" : "bob 1.4s ease-in-out infinite",
-      filter: shakeSide === "enemy" ? "brightness(2.4) saturate(.5)" : "none"
-    }
-  })))), slash && /*#__PURE__*/React.createElement("div", {
-    className: "slash"
-  }), pops.map(p => /*#__PURE__*/React.createElement("div", {
-    key: p.id,
-    className: "pointer-events-none absolute font-bold",
-    style: {
-      left: p.side === "enemy" ? "62%" : "20%",
-      top: "32%",
-      color: p.color,
-      textShadow: "0 0 2px #000, 0 0 10px " + p.color,
-      fontSize: p.crit ? 26 : 18,
-      animation: "dmgPop .95s ease-out forwards"
-    }
-  }, p.crit ? "💥" : "", p.text))), /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 h-[68px] overflow-hidden rounded border px-2 py-1 text-[9px] leading-snug",
-    style: {
-      borderColor: "#2a2018",
-      background: "#0d0906",
-      color: "#8a7a5c"
-    }
-  }, log.map((l, i) => /*#__PURE__*/React.createElement("div", {
-    key: i,
-    style: {
-      opacity: 1 - i * 0.18
-    }
-  }, l))), phase === "victory" && reward && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3",
-    style: {
-      animation: "popIn .4s ease-out"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 rounded border-2 p-2",
-    style: {
-      borderColor: rar ? rar.color : "#3a2c1c",
-      boxShadow: "0 0 14px " + (rar ? rar.color : "#3a2c1c") + "44"
-    }
-  }, /*#__PURE__*/React.createElement(PixelSprite, {
-    rows: ICONS[reward.item.icon],
-    palette: iconPalette(reward.item.color),
-    scale: 4,
-    outline: true,
-    style: {
-      animation: "bob 1.4s ease-in-out infinite"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "min-w-0 flex-1 text-[11px]"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "font-bold",
-    style: {
-      color: rar ? rar.color : "#d8c9a3"
-    }
-  }, reward.item.name), /*#__PURE__*/React.createElement("div", {
-    style: {
-      color: "#7ec8ff"
-    }
-  }, "+", reward.item.statVal, " % ", reward.item.statLabel, " \u2022 ", SLOT_NAMES[reward.item.slot]), /*#__PURE__*/React.createElement("div", {
-    style: gold
-  }, "+", reward.xpGain, " XP \u2022 nalezne\u0161 v invent\xE1\u0159i"))), battle.bonus.trim() && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 rounded border-2 p-2 text-[10px]",
-    style: {
-      borderColor: "#e8c05a",
-      color: "#ffe86b"
-    }
-  }, "\u2728 Perla zaz\xE1\u0159ila: \u201E", battle.bonus.trim(), "\""), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onClose(reward.leveled, reward.newLevel),
-    className: "btnD2 daybtn mt-3 w-full py-2 text-sm font-bold",
-    style: {
-      color: "#ffd700"
-    }
-  }, "P\u0159ijmout po\u017Eehn\xE1n\xED")), phase !== "victory" && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 text-center text-[9px]",
-    style: {
-      color: "#8a7a5c"
-    }
-  }, "Ka\u017Ed\xFD spln\u011Bn\xFD \xFAkol = jeden \xFAder. Bonus perly l\xE9\u010D\xED. Nem\u016F\u017Ee\u0161 prohr\xE1t \u2014 Duch je v\xEDry t\u011B nenech\xE1!")));
+  const cdFrac = name => {
+    const left = (cooldowns[name] || 0) - performance.now();
+    return left > 0 ? Math.min(1, left / (name === "skill" ? 4000 : name === "pray" ? 6000 : 650)) : 0;
+  };
+  return /*#__PURE__*/React.createElement("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", style: { backgroundColor: "rgba(5,3,2,.86)" } }, /*#__PURE__*/React.createElement("div", { className: "panelD2 relative w-full max-w-md overflow-hidden", onClick: e => e.stopPropagation() }, /*#__PURE__*/React.createElement("style", null, SHARED_CSS), /*#__PURE__*/React.createElement("div", { className: "px-4 pt-3 pb-2 text-center text-sm font-bold", style: { ...d2font, color: phase === "victory" ? "#ffd700" : "#d8c9a3" } }, phase === "victory" ? "🏆 VÍTĚZSTVÍ!" : "⚔ Bitva — " + DAY_NAMES[battle.dayIdx]), /*#__PURE__*/React.createElement("div", { className: "arena relative mx-3 overflow-hidden", style: { height: 180 } }, /*#__PURE__*/React.createElement("div", { className: "arenaFloor" }), [0, 1].map(i => /*#__PURE__*/React.createElement("div", { key: "t" + i, className: "torch", style: { left: i ? "calc(100% - 14px)" : "6px", top: "30px" } }, /*#__PURE__*/React.createElement("div", { className: "torchflame" }))), /*#__PURE__*/React.createElement("div", { className: "absolute", style: { left: "18%", bottom: "12px", filter: shakeSide === "hero" ? "brightness(1.4)" : "none", transform: shakeSide === "hero" ? "translateX(6px)" : "none" } }, /*#__PURE__*/React.createElement(PixelSprite, { rows: HERO_SPRITES[heroCls], palette: heroPal, scale: 3, outline: true })), /*#__PURE__*/React.createElement("div", { className: "absolute", style: { right: "14%", bottom: "20px", transform: shakeSide === "enemy" ? "translateX(-6px)" : "none" } }, /*#__PURE__*/React.createElement(PixelSprite, { rows: enemy.boss ? BOSS_ROWS : GHOST_ROWS, palette: ghostPalette(enemy.color, enemy.boss), scale: 3, outline: true })), enemyCharging && phase === "fight" && /*#__PURE__*/React.createElement("div", { className: "absolute left-1/2 -translate-x-1/2 text-xs font-bold", style: { top: "6px", color: "#ff6644", animation: "shimmer .5s infinite" } }, "⚠ NEPŘÍTEL SE CHYSTÁ ÚTOČIT!"), slash && /*#__PURE__*/React.createElement("div", { className: "slash" }), pops.map(p => /*#__PURE__*/React.createElement("div", { key: p.id, className: "absolute font-bold", style: { left: p.side === "enemy" ? "66%" : "26%", top: "34%", color: p.color, fontSize: p.crit ? 22 : 16, textShadow: "0 2px 0 #000, 0 0 8px " + p.color, animation: "dmgPop .95s ease-out forwards" } }, p.crit ? "💥" : "", p.text))), /*#__PURE__*/React.createElement("div", { className: "grid grid-cols-2 gap-2 px-3 pt-2" }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { className: "flex justify-between text-[10px]", style: { color: "#d8c9a3" } }, /*#__PURE__*/React.createElement("span", null, "Víra ", heroHp, "/", gear.maxHp)), /*#__PURE__*/React.createElement("div", { className: "h-2 w-full overflow-hidden rounded", style: { background: "#1a120a", boxShadow: "inset 0 0 0 1px #3a2c1c" } }, /*#__PURE__*/React.createElement("div", { className: "h-full", style: { width: (heroHp / gear.maxHp * 100) + "%", background: "linear-gradient(90deg,#2e7d32,#66bb6a)" } }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { className: "flex justify-between text-[10px]", style: { color: "#d8c9a3" } }, /*#__PURE__*/React.createElement("span", null, "Energie víry ", faith, "/100")), /*#__PURE__*/React.createElement("div", { className: "h-2 w-full overflow-hidden rounded", style: { background: "#1a120a", boxShadow: "inset 0 0 0 1px #3a2c1c" } }, /*#__PURE__*/React.createElement("div", { className: "h-full", style: { width: faith + "%", background: "linear-gradient(90deg,#1565c0,#64b5f6)" } })))), /*#__PURE__*/React.createElement("div", { className: "px-3 pt-2" }, /*#__PURE__*/React.createElement("div", { className: "flex justify-between text-[10px]", style: { color: enemyCharging ? "#ff6644" : "#d8c9a3" } }, /*#__PURE__*/React.createElement("span", null, enemy.name, " ", enemyHp, "/", enemy.hp)), /*#__PURE__*/React.createElement("div", { className: "h-2 w-full overflow-hidden rounded", style: { background: "#1a120a", boxShadow: "inset 0 0 0 1px #3a2c1c" } }, /*#__PURE__*/React.createElement("div", { className: "h-full", style: { width: (enemyHp / enemy.hp * 100) + "%", background: enemyCharging ? "linear-gradient(90deg,#c62828,#ff8a65)" : "linear-gradient(90deg,#8a1f1f,#d84343)" } }))), phase === "fight" && /*#__PURE__*/React.createElement("div", { className: "grid grid-cols-3 gap-2 px-3 pt-3" }, /*#__PURE__*/React.createElement("button", { onPointerDown: doAttack, disabled: !cdReady("atk"), className: "btnD2 relative py-3 text-xs font-bold", style: { touchAction: "manipulation" } }, "⚔ ÚTOK", comboCount > 1 && /*#__PURE__*/React.createElement("span", { className: "absolute -top-2 left-1/2 -translate-x-1/2 rounded px-1 text-[9px]", style: { background: "#ffd700", color: "#1a120a" } }, "×", comboCount), cdFrac("atk") > 0 && /*#__PURE__*/React.createElement("span", { className: "absolute inset-0", style: { background: "rgba(0,0,0,.5)", pointerEvents: "none" } })), /*#__PURE__*/React.createElement("button", { onPointerDown: doSkill, disabled: !cdReady("skill") || faith < skill.cost, className: "btnD2 relative py-3 text-xs font-bold", style: { touchAction: "manipulation" } }, skill.glyph + " " + skill.name.toUpperCase(), /*#__PURE__*/React.createElement("span", { className: "block text-[9px]", style: { color: "#8ab4f8" } }, "víra: " + skill.cost), cdFrac("skill") > 0 && /*#__PURE__*/React.createElement("span", { className: "absolute inset-0", style: { background: "rgba(0,0,0,.5)", pointerEvents: "none" } })), /*#__PURE__*/React.createElement("button", { onPointerDown: doPray, disabled: !cdReady("pray"), className: "btnD2 relative py-3 text-xs font-bold", style: { touchAction: "manipulation" } }, "🙏 MODLITBA", cdFrac("pray") > 0 && /*#__PURE__*/React.createElement("span", { className: "absolute inset-0", style: { background: "rgba(0,0,0,.5)", pointerEvents: "none" } }))), /*#__PURE__*/React.createElement("div", { className: "mx-3 mt-2 h-16 overflow-y-auto rounded p-2 text-[10px] leading-relaxed", style: { background: "rgba(0,0,0,.35)", color: "#8a7a5c" } }, log.map((l, i) => /*#__PURE__*/React.createElement("div", { key: i, style: { opacity: 1 - i * 0.18 } }, l))), phase === "victory" && reward && /*#__PURE__*/React.createElement("div", { className: "popIn px-4 pb-4 pt-2 text-center" }, /*#__PURE__*/React.createElement("div", { className: "mb-2 text-sm font-bold", style: { color: "#ffd700" } }, "✨ ", enemy.name, " poražen!"), /*#__PURE__*/React.createElement("div", { className: "mb-2 text-[11px]", style: { color: "#7dd87d" } }, "+", reward.gain, " XP", reward.leveled ? " • LEVEL UP! → Lv " + reward.newLevel : ""), /*#__PURE__*/React.createElement("div", { className: "mb-3 text-[11px]", style: { color: RARITIES[RARITIES.findIndex(r => r.id === reward.item.rarityId)].color } }, "Drop: ", reward.item.name), /*#__PURE__*/React.createElement("button", { onClick: () => onClose(reward.leveled, reward.newLevel), className: "btnD2 daybtn w-full py-2 text-sm font-bold", style: { color: "#ffd700" } }, "Přijmout odměnu"))));
 }
-
-/* ============================================================
-   Modal: pohled na splněný den
-   ============================================================ */
-
 function ViewDayModal({
   dayIdx,
   rec,
@@ -3134,7 +2849,8 @@ function ChestModal({
       color: "#ffd700"
     }
   }, "Na dal\u0161\xED t\xFDden! \u2694"))));
-}</script>
+}
+</script>
 <script>
 const __css = "/* Minimal Tailwind-style utilities for Perla Proměny (generated for the exact class list used) */\n*, ::before, ::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml, body, #root { height: 100%; }\nbody { font-family: \"Trebuchet MS\", \"Segoe UI\", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }\nbutton, input, select { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }\nbutton:disabled { cursor: not-allowed; }\nul, ol { list-style: none; }\nimg, canvas { display: block; }\n\n/* positioning */\n.absolute { position: absolute; }\n.fixed { position: fixed; }\n.relative { position: relative; }\n.inset-0 { top: 0; right: 0; bottom: 0; left: 0; }\n.top-0 { top: 0; }\n.top-1 { top: 4px; }\n.-top-1 { top: -4px; }\n.bottom-2 { bottom: 8px; }\n.bottom-6 { bottom: 24px; }\n.left-1\\/2 { left: 50%; }\n.right-1 { right: 4px; }\n.right-2 { right: 8px; }\n.-translate-x-1\\/2 { --tw-tx: -50%; transform: translateX(-50%); }\n.z-10 { z-index: 10; }\n.z-40 { z-index: 40; }\n.z-50 { z-index: 50; }\n.pointer-events-none { pointer-events: none; }\n.overflow-hidden { overflow: hidden; }\n.overflow-y-auto { overflow-y: auto; }\n.select-none { user-select: none; -webkit-user-select: none; }\n.outline-none { outline: none; }\n\n/* flex & grid */\n.flex { display: flex; }\n.flex-1 { flex: 1 1 0%; }\n.flex-col { flex-direction: column; }\n.flex-wrap { flex-wrap: wrap; }\n.items-center { align-items: center; }\n.items-end { align-items: flex-end; }\n.items-start { align-items: flex-start; }\n.justify-between { justify-content: space-between; }\n.justify-center { justify-content: center; }\n.shrink-0 { flex-shrink: 0; }\n.min-w-0 { min-width: 0; }\n.grid { display: grid; }\n.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }\n.gap-1 { gap: 4px; }\n.gap-2 { gap: 8px; }\n.gap-3 { gap: 12px; }\n\n/* spacing */\n.p-1 { padding: 4px; }\n.p-2 { padding: 8px; }\n.p-3 { padding: 12px; }\n.p-4 { padding: 16px; }\n.p-5 { padding: 20px; }\n.px-2 { padding-left: 8px; padding-right: 8px; }\n.px-3 { padding-left: 12px; padding-right: 12px; }\n.px-4 { padding-left: 16px; padding-right: 16px; }\n.px-5 { padding-left: 20px; padding-right: 20px; }\n.py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }\n.py-1 { padding-top: 4px; padding-bottom: 4px; }\n.py-1\\.5 { padding-top: 6px; padding-bottom: 6px; }\n.py-2 { padding-top: 8px; padding-bottom: 8px; }\n.py-3 { padding-top: 12px; padding-bottom: 12px; }\n.py-6 { padding-top: 24px; padding-bottom: 24px; }\n.pb-3 { padding-bottom: 12px; }\n.pb-4 { padding-bottom: 16px; }\n.pl-4 { padding-left: 16px; }\n.pt-1 { padding-top: 4px; }\n.mt-0\\.5 { margin-top: 2px; }\n.mt-1 { margin-top: 4px; }\n.mt-2 { margin-top: 8px; }\n.mt-3 { margin-top: 12px; }\n.mt-4 { margin-top: 16px; }\n.mt-5 { margin-top: 20px; }\n.mb-0\\.5 { margin-bottom: 2px; }\n.mb-1 { margin-bottom: 4px; }\n.mb-2 { margin-bottom: 8px; }\n.mx-auto { margin-left: auto; margin-right: auto; }\n\n/* sizing */\n.h-2\\.5 { height: 10px; }\n.h-3 { height: 12px; }\n.h-3\\.5 { height: 14px; }\n.h-4 { height: 16px; }\n.h-5 { height: 20px; }\n.h-6 { height: 24px; }\n.h-11 { height: 44px; }\n.h-12 { height: 48px; }\n.h-28 { height: 112px; }\n.h-36 { height: 144px; }\n.h-40 { height: 160px; }\n.h-56 { height: 224px; }\n.h-\\[68px\\] { height: 68px; }\n.h-full { height: 100%; }\n.w-4 { width: 16px; }\n.w-11 { width: 44px; }\n.w-12 { width: 48px; }\n.w-20 { width: 80px; }\n.w-28 { width: 112px; }\n.w-\\[90\\%\\] { width: 90%; }\n.w-full { width: 100%; }\n.max-h-\\[92vh\\] { max-height: 92vh; }\n.max-h-\\[94vh\\] { max-height: 94vh; }\n.max-w-sm { max-width: 384px; }\n.max-w-md { max-width: 448px; }\n.max-w-xl { max-width: 576px; }\n.max-w-2xl { max-width: 672px; }\n.max-w-3xl { max-width: 768px; }\n\n/* typography */\n.font-bold { font-weight: 700; }\n.italic { font-style: italic; }\n.uppercase { text-transform: uppercase; }\n.tracking-wider { letter-spacing: 0.05em; }\n.tracking-widest { letter-spacing: 0.1em; }\n.leading-tight { line-height: 1.25; }\n.leading-snug { line-height: 1.375; }\n.text-left { text-align: left; }\n.text-center { text-align: center; }\n.list-disc { list-style-type: disc; }\n.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n.text-\\[8px\\] { font-size: 8px; }\n.text-\\[9px\\] { font-size: 9px; }\n.text-\\[10px\\] { font-size: 10px; }\n.text-\\[11px\\] { font-size: 11px; }\n.text-xs { font-size: 12px; line-height: 1rem; }\n.text-sm { font-size: 14px; line-height: 1.25rem; }\n.text-base { font-size: 16px; line-height: 1.5rem; }\n.text-lg { font-size: 18px; line-height: 1.75rem; }\n.text-xl { font-size: 20px; line-height: 1.75rem; }\n.text-2xl { font-size: 24px; line-height: 2rem; }\n.text-4xl { font-size: 36px; line-height: 2.5rem; }\n\n/* borders, radius, colors, opacity */\n.border { border-width: 1px; border-style: solid; }\n.border-2 { border-width: 2px; border-style: solid; }\n.border-t { border-top-width: 1px; border-top-style: solid; }\n.rounded { border-radius: 4px; }\n.rounded-sm { border-radius: 2px; }\n.rounded-full { border-radius: 9999px; }\n.bg-black\\/80 { background-color: rgba(0,0,0,0.8); }\n.bg-black\\/85 { background-color: rgba(0,0,0,0.85); }\n.opacity-50 { opacity: 0.5; }\n.opacity-60 { opacity: 0.6; }\n\n/* variants */\n@media (min-width: 640px) {\n  .sm\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n  .sm\\:grid-cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }\n  .sm\\:h-64 { height: 256px; }\n  .sm\\:p-3 { padding: 12px; }\n  .sm\\:p-4 { padding: 16px; }\n  .sm\\:text-xs { font-size: 12px; line-height: 1rem; }\n  .sm\\:text-sm { font-size: 14px; line-height: 1.25rem; }\n  .sm\\:text-xl { font-size: 20px; line-height: 1.75rem; }\n  .sm\\:text-2xl { font-size: 24px; line-height: 2rem; }\n  .sm\\:text-3xl { font-size: 30px; line-height: 2.25rem; }\n  .sm\\:text-5xl { font-size: 48px; line-height: 1; }\n}\n@media (min-width: 1024px) {\n  .lg\\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }\n}\n";
 const __styleEl = document.createElement("style");
@@ -3142,6 +2858,9 @@ __styleEl.textContent = __css;
 document.head.appendChild(__styleEl);
 const __root = document.getElementById("root");
 ReactDOM.createRoot(__root).render(React.createElement(App));
+</script>
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", function() { navigator.serviceWorker.register("./sw.js"); }); }
 </script>
 </body>
 </html>
